@@ -190,13 +190,44 @@ export function createPlugin({
             catch (error) { logger.warn(`telegram-auto-poll: cannot collect choice sample: ${error.message}`); }
           }
         }
-        const token = TOKEN_RE.exec(event.content)?.[1];
-        if (!token) return;
-        const record = journal.getByToken(token);
+        let token = TOKEN_RE.exec(event.content)?.[1];
+        let record;
+        if (!token) {
+          // Stream previews can bypass message_sending. Only their successful
+          // final delivery receipt is eligible; never infer completion by timer.
+          if (event.success !== true) return;
+          const to = stringOrEmpty(event.to), accountId = getAccount(event, ctx);
+          const messageId = event.messageId ?? ctx?.messageId;
+          if (!to || messageId == null || String(messageId).trim() === "") return;
+          if (allowedChatIds.length && !allowedChatIds.includes(to)) return;
+          const threadId = event.threadId ?? ctx?.threadId ?? event.metadata?.threadId;
+          const originKey = createHash("sha256").update(JSON.stringify([
+            "delivered", to, accountId, String(messageId), threadId ?? "",
+          ])).digest("hex");
+          if (journal.getByOrigin(originKey)) return;
+          let parsed;
+          try {
+            parsed = parsePollText(event.content);
+            if (!parsed && config.autoDetect !== false) {
+              const next = ruleStore?.load() ?? document;
+              if (next !== document) { detect = createChoiceDetector(next); document = next; }
+              parsed = detect(event.content, { durationSeconds });
+            }
+            if (!parsed) return;
+            if (journal.countRecent(to, accountId, Date.now() - 3600000) >= perChatHourlyLimit) return;
+            record = journal.create({ to, accountId, threadId, intro: parsed.intro, poll: parsed.poll, originKey });
+            token = record.token;
+          } catch (error) {
+            logger.warn(`telegram-auto-poll: cannot prepare delivered text poll: ${error.message}`);
+            return;
+          }
+        } else {
+          record = journal.getByToken(token);
+          // Do not act on a stale/rewritten message that happens to contain a token.
+          if (record && event.content !== makeAnchor(record.intro, record.token, record.poll)
+            && event.content !== legacyAnchor(record.intro, record.token)) return;
+        }
         if (!record || record.status !== "pending") return;
-        // Do not act on a stale/rewritten message that happens to contain a token.
-        if (event.content !== makeAnchor(record.intro, record.token, record.poll)
-          && event.content !== legacyAnchor(record.intro, record.token)) return;
         if (stringOrEmpty(event.to) !== record.to) return;
         const accountId = getAccount(event, ctx);
         if (accountId && record.accountId && accountId !== record.accountId) return;

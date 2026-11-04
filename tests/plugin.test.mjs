@@ -415,3 +415,56 @@ test("numbered installation sections reach the sender without explanatory comman
     assert.equal(getRecord(s.path).status, "sent");
   } finally { s.cleanup(); }
 });
+
+test("streamed final text creates a poll without message_sending and survives duplicate receipts/restart", async () => {
+  const polls = [];
+  const s = setup({ sendPoll: async data => { polls.push(data); } });
+  const event = { to: "12345", content: "请选择下一步：\n1. 检查配置\n2. 查看日志", success: true, messageId: "501" };
+  try {
+    await s.hooks.message_sent({ ...event, success: false }, demoContext);
+    assert.equal(polls.length, 0);
+    await s.hooks.message_sent(event, demoContext);
+    assert.equal(polls.length, 1);
+    assert.deepEqual(polls[0].poll.options, ["检查配置", "查看日志"]);
+    await s.hooks.message_sent(event, demoContext);
+    const restarted = setup({ statePath: s.path, sendPoll: async data => { polls.push(data); } });
+    await restarted.hooks.message_sent(event, demoContext);
+    assert.equal(polls.length, 1);
+    await restarted.hooks.message_sent({ ...event, messageId: "502" }, demoContext);
+    assert.equal(polls.length, 2);
+  } finally { s.cleanup(); }
+});
+
+test("unprepared receipts require a delivery ID and respect chat restrictions and detection settings", async () => {
+  for (const config of [{ allowedChatIds: ["other"] }, { autoDetect: false }, { maxPerChatPerHour: 1 }]) {
+    const polls = [];
+    const s = setup({ config, sendPoll: async data => { polls.push(data); } });
+    const event = { to: "12345", content: "请选择下一步：\n1. 检查配置\n2. 查看日志", success: true };
+    try {
+      await s.hooks.message_sent(event, demoContext);
+      assert.equal(polls.length, 0);
+      await s.hooks.message_sent({ ...event, messageId: "501" }, demoContext);
+      await s.hooks.message_sent({ ...event, messageId: "502" }, demoContext);
+      assert.equal(polls.length, config.maxPerChatPerHour ? 1 : 0);
+    } finally { s.cleanup(); }
+  }
+});
+
+test("delivered explicit polls preserve routing and never retry an uncertain streaming send", async () => {
+  const calls = [];
+  const s = setup({ config: { autoDetect: false }, sendPoll: async data => {
+    calls.push(data);
+    throw new UncertainDeliveryError("timeout");
+  } });
+  const event = { to: "-10012345", content: pollText, success: true, messageId: "701", threadId: "42" };
+  try {
+    await Promise.all([s.hooks.message_sent(event, demoContext), s.hooks.message_sent(event, demoContext)]);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].to, "-10012345");
+    assert.equal(calls[0].threadId, "42");
+    assert.equal(calls[0].accountId, "my-bot");
+    assert.equal(getRecord(s.path).status, "uncertain");
+    await s.hooks.message_sent(event, demoContext);
+    assert.equal(calls.length, 1);
+  } finally { s.cleanup(); }
+});

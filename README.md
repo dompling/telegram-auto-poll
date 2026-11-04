@@ -60,11 +60,6 @@ openclaw plugins enable telegram-auto-poll
 
 ```json
 {
-  "channels": {
-    "telegram": {
-      "streaming": { "mode": "off" }
-    }
-  },
   "plugins": {
     "entries": {
       "telegram-auto-poll": {
@@ -88,7 +83,7 @@ openclaw plugins enable telegram-auto-poll
 }
 ```
 
-**本机 OpenClaw 2026.10.5 的默认流式预览/原地编辑会绕过 `message_sending`。因此必须将 Telegram 的 `streaming.mode` 设为 `off`**，等待完整回复后发送；有账号级流式覆盖时也要关闭。这里使用对象配置，不是旧式字符串 `"off"`。
+Telegram 沿用已有 streaming 配置，**无需添加 `channels.telegram.streaming.mode: "off"`**。普通发送仍在 `message_sending` 准备投票、在 `message_sent` 成功后发送；流式预览/原地编辑即使绕过发送前钩子，也会在最终定稿的成功 `message_sent` 回执中检测完整文本，再创建投票。后一条路径要求宿主提供消息 ID，并按聊天、账号和消息 ID 持久化去重；失败回执不触发投票。宿主若不提供最终回执或消息 ID，则不会猜测消息已完成。流式路径保留已送达的原始文本（包括显式 `[POLL]` 块），不会回头编辑消息。宿主自身可能根据已注册的发送前钩子调整预览行为，具体流式展示由宿主决定。
 
 `cliPath` 推荐填写 `command -v openclaw` 的绝对路径，避免后台服务找不到命令。`allowedChatIds:[]` 表示不额外限制目标，仍受宿主渠道权限控制；可填写指定私聊或群 ID。代码默认时长 300 秒、每小时 10 次，示例改成 1 小时和 100 次；超额退回文字。提示注入需要上述两个 Hook 权限。
 
