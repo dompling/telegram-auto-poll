@@ -9,6 +9,11 @@
       "hook"
     ]
   },
+  "contracts": {
+    "tools": [
+      "telegram_auto_poll_learn"
+    ]
+  },
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
@@ -27,6 +32,15 @@
         "type": "boolean",
         "default": true,
         "description": "Recognize explicit choices and confirmations even when the agent omits the POLL block"
+      },
+      "learningEnabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Collect missed Telegram choices and enable AI-assisted rule learning"
+      },
+      "rulesPath": {
+        "type": "string",
+        "description": "Writable rule file path (default: alongside the plugin state directory)"
       },
       "promptGuidance": {
         "type": "boolean",

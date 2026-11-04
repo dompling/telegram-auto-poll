@@ -38,6 +38,17 @@ async function delivered(s, content = miss, context = messageContext, success = 
 }
 function samples(s) { return existsSync(s.samplesPath) ? JSON.parse(readFileSync(s.samplesPath, "utf8")).records : []; }
 
+test("manifest declares every registered agent tool and learning settings", () => {
+  const manifest = JSON.parse(readFileSync(new URL("../openclaw.plugin.json", import.meta.url), "utf8"));
+  const s = setup();
+  try {
+    const toolNames = s.factories.map(factory => factory(toolContext)?.name).filter(Boolean);
+    assert.deepEqual(manifest.contracts?.tools, toolNames);
+    assert.equal(manifest.configSchema.properties.learningEnabled.type, "boolean");
+    assert.equal(manifest.configSchema.properties.rulesPath.type, "string");
+  } finally { s.cleanup(); }
+});
+
 test("plugin seeds the shipped rules into its writable state directory", () => {
   const s = setup();
   try {
@@ -60,7 +71,7 @@ test("only a matching successful delivery turns a staged miss into a pending sam
     assert.equal(s.polls.length, 0);
     const prompt = s.hooks.before_prompt_build({}, agentContext);
     assert.match(prompt?.appendSystemContext ?? "", /telegram_auto_poll_learn/);
-    assert.ok(prompt.appendSystemContext.includes(samples(s)[0].id));
+    assert.ok((prompt.appendContext ?? "").includes(samples(s)[0].id));
     assert.ok((prompt.appendContext ?? "").includes("确定一个方案"));
   } finally { s.cleanup(); }
 });
