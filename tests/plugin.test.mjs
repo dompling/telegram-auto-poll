@@ -132,7 +132,7 @@ test("duplicate message_sent receipts or in-flight sends cannot send twice", asy
   } finally { s.cleanup(); }
 });
 
-test("stable origin is suppressed across Gateway restarts", async () => {
+test("stable origin is downgraded to readable text across Gateway restarts", async () => {
   const tmp = mkdtempSync(join(tmpdir(), "telegram-auto-poll-restart-"));
   const statePath = join(tmp, "state.json");
   try {
@@ -141,18 +141,117 @@ test("stable origin is suppressed across Gateway restarts", async () => {
     assert.ok(a.content);
     const next = setup({ statePath });
     const repeated = next.hooks.message_sending(outgoing(), demoContext);
-    assert.equal(repeated.cancel, true);
+    assert.equal(repeated.cancel, undefined);
+    assert.match(repeated.content, /投票文字模式/);
+    assert.match(repeated.content, /立即部署/);
+    assert.equal(next.hooks.message_sending(outgoing("12345", repeated.content), demoContext), undefined);
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+});
+
+test("different outgoing text in the same run is never swallowed as a duplicate", async () => {
+  const polls = [];
+  const s = setup({ sendPoll: async data => { polls.push(data); } });
+  try {
+    const first = s.hooks.message_sending(outgoing("12345", `第一段说明\n${pollText}`), demoContext);
+    const second = s.hooks.message_sending(outgoing("12345", `第二段不同说明\n${pollText}`), demoContext);
+    assert.match(first.content, /^第一段说明/);
+    assert.match(second.content, /^第二段不同说明/);
+    assert.notEqual(first.content, second.content);
+    assert.equal(first.cancel, undefined);
+    assert.equal(second.cancel, undefined);
+    await s.hooks.message_sent(confirmed(first), demoContext);
+    await s.hooks.message_sent(confirmed(second), demoContext);
+    assert.equal(polls.length, 2);
+  } finally { s.cleanup(); }
+});
+
+test("anchors include readable options and do not re-enter poll detection", async () => {
+  let count = 0;
+  const s = setup({ sendPoll: async () => { count++; } });
+  try {
+    const anchor = s.hooks.message_sending(outgoing(), demoContext);
+    assert.match(anchor.content, /是否部署？/);
+    assert.match(anchor.content, /立即部署/);
+    assert.match(anchor.content, /先测试/);
+    assert.match(anchor.content, /取消/);
+    assert.equal(s.hooks.message_sending(outgoing("12345", anchor.content), demoContext), undefined);
+    await s.hooks.message_sent(confirmed(anchor), demoContext);
+    await s.hooks.message_sent(confirmed(anchor), demoContext);
+    assert.equal(count, 1);
+  } finally { s.cleanup(); }
+});
+
+test("a text fallback re-entering message hooks cannot trigger another poll", async () => {
+  let count = 0;
+  let fallbackTextSent;
+  const s = setup({
+    sendPoll: async () => { count++; throw new DefiniteDeliveryError("CLI unavailable"); },
+    sendText: async details => { fallbackTextSent = details.message; },
+  });
+  try {
+    const anchor = s.hooks.message_sending(outgoing(), demoContext);
+    await s.hooks.message_sent(confirmed(anchor), demoContext);
+    assert.equal(count, 1);
+    assert.match(fallbackTextSent, /投票文字模式/);
+    assert.match(fallbackTextSent, /立即部署/);
+    assert.equal(s.hooks.message_sending(outgoing("12345", fallbackTextSent), demoContext), undefined);
+    await s.hooks.message_sent({ to: "12345", content: fallbackTextSent, success: true }, demoContext);
+    assert.equal(count, 1);
+    assert.equal(getRecord(s.path).status, "failed");
+  } finally { s.cleanup(); }
+});
+
+test("unknown poll delivery still leaves original options readable in the anchor", async () => {
+  const s = setup({ sendPoll: async () => { throw new UncertainDeliveryError("timeout"); },
+    sendText: async () => { assert.fail("uncertain delivery must not retry"); } });
+  try {
+    const anchor = s.hooks.message_sending(outgoing(), demoContext);
+    assert.match(anchor.content, /1\. 立即部署/);
+    assert.match(anchor.content, /2\. 先测试/);
+    await s.hooks.message_sent(confirmed(anchor), demoContext);
+    assert.equal(getRecord(s.path).status, "uncertain");
+  } finally { s.cleanup(); }
+});
+
+test("old-version anchor receipts still work after updating the plugin", async () => {
+  let count = 0;
+  const s = setup({ sendPoll: async () => { count++; } });
+  try {
+    const anchor = s.hooks.message_sending(outgoing(), demoContext);
+    const token = getRecord(s.path).token;
+    const oldAnchor = `📊 请查看接下来的投票。\n[投票编号:${token}]`;
+    assert.notEqual(anchor.content, oldAnchor);
+    assert.equal(s.hooks.message_sending(outgoing("12345", oldAnchor), demoContext), undefined);
+    await s.hooks.message_sent({ to: "12345", content: oldAnchor, success: true }, demoContext);
+    assert.equal(count, 1);
+  } finally { s.cleanup(); }
+});
+
+test("text fallback is still ignored after the plugin restarts", async () => {
+  const tmp = mkdtempSync(join(tmpdir(), "telegram-auto-poll-fallback-restart-"));
+  const statePath = join(tmp, "state.json");
+  try {
+    const first = setup({ statePath });
+    first.hooks.message_sending(outgoing(), demoContext);
+    const repeated = first.hooks.message_sending(outgoing(), demoContext);
+    assert.match(repeated.content, /投票文字模式/);
+    let sent = 0;
+    const restarted = setup({ statePath, sendPoll: async () => { sent++; } });
+    assert.equal(restarted.hooks.message_sending(outgoing("12345", repeated.content), demoContext), undefined);
+    await restarted.hooks.message_sent({ to: "12345", content: repeated.content, success: true }, demoContext);
+    assert.equal(sent, 0);
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 });
 
 test("hourly limit and chat allowlist degrade to readable choices", () => {
   const s = setup({ config: { maxPerChatPerHour: 1, allowedChatIds: ["12345"] } });
   try {
-    assert.equal(s.hooks.message_sending(outgoing("9999"), demoContext).content, fallbackText(parsePollText(pollText)));
+    assert.ok(s.hooks.message_sending(outgoing("9999"), demoContext).content.endsWith(fallbackText(parsePollText(pollText))));
     const first = s.hooks.message_sending(outgoing(), demoContext);
     assert.match(first.content, /投票编号/);
     const second = s.hooks.message_sending(outgoing(), { ...demoContext, runId: "run-2" });
-    assert.equal(second.content, fallbackText(parsePollText(pollText)));
+    assert.ok(second.content.endsWith(fallbackText(parsePollText(pollText))));
+    assert.equal(s.hooks.message_sending(outgoing("12345", second.content), demoContext), undefined);
   } finally { s.cleanup(); }
 });
 

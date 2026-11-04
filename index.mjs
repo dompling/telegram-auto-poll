@@ -12,18 +12,36 @@ import { DefiniteDeliveryError, sendPollViaCli, sendTextViaCli } from "./src/sen
 
 const TAG = "投票编号";
 const TOKEN_RE = /\[投票编号:([a-f0-9]{16})\]/;
-function makeAnchor(intro, token) {
+const FALLBACK_HEADER = "【投票文字模式】";
+function safeFallbackText(parsed) {
+  // The visible header survives a CLI re-entry and keeps the detector from
+  // turning our own text-only fallback into another poll.
+  return `${FALLBACK_HEADER}\n${fallbackText(parsed)}`;
+}
+function isFallbackText(content) { return content.startsWith(`${FALLBACK_HEADER}\n`); }
+function makeAnchor(intro, token, poll) {
+  const body = intro || "📊 请查看接下来的投票。";
+  // Telegram delivery is two-phase: keep readable options in the first message
+  // even when the subsequent poll CLI is missing, times out, or fails.
+  const alreadyReadable = intro && intro.includes(poll.question) && poll.options.every(option => intro.includes(option));
+  const readable = alreadyReadable ? body : fallbackText({ intro: body, poll });
+  return `${readable}\n[${TAG}:${token}]`;
+}
+function legacyAnchor(intro, token) {
+  // Accept an anchor already sent by the previous version during an upgrade.
   return intro ? `${intro}\n\n[${TAG}:${token}]` : `📊 请查看接下来的投票。\n[${TAG}:${token}]`;
 }
 
 function stringOrEmpty(x) { return typeof x === "string" ? x.trim() : ""; }
 function getChannel(event, ctx) { return ctx?.channelId ?? event?.channelId ?? event?.metadata?.channel; }
 function getAccount(event, ctx) { return stringOrEmpty(ctx?.accountId ?? event?.accountId ?? event?.metadata?.accountId); }
-function stableOrigin(event, ctx, poll) {
-  // Only dedupe when the host provides a genuine stable run/message identity.
+function stableOrigin(event, ctx) {
+  // A run can send multiple messages with the same choices but different text.
+  // Include the complete outgoing content to avoid dropping distinct messages.
   const id = ctx?.messageId ?? event?.messageId ?? ctx?.runId;
   if (!id) return undefined;
-  const raw = JSON.stringify([ctx?.sessionKey ?? "", String(id), event.to, poll]);
+  const raw = JSON.stringify([ctx?.sessionKey ?? "", String(id), event.to,
+    event.threadId ?? ctx?.threadId ?? event.metadata?.threadId ?? "", event.content]);
   return createHash("sha256").update(raw).digest("hex");
 }
 
@@ -110,6 +128,11 @@ export function createPlugin({
       api.on("message_sending", (event, ctx) => {
         if (getChannel(event, ctx) !== "telegram") return;
         if (typeof event?.content !== "string") return;
+        if (isFallbackText(event.content)) return;
+        const marker = TOKEN_RE.exec(event.content)?.[1];
+        const recorded = marker && journal.getByToken(marker);
+        if (recorded && (event.content === makeAnchor(recorded.intro, recorded.token, recorded.poll)
+          || event.content === legacyAnchor(recorded.intro, recorded.token))) return;
         let parsed;
         try {
           parsed = parsePollText(event.content);
@@ -131,31 +154,32 @@ export function createPlugin({
           return;
         }
         const to = stringOrEmpty(event.to);
-        if (!to) return { content: fallbackText(parsed) };
-        if (allowedChatIds.length && !allowedChatIds.includes(to)) return { content: fallbackText(parsed) };
+        if (!to) return { content: safeFallbackText(parsed) };
+        if (allowedChatIds.length && !allowedChatIds.includes(to)) return { content: safeFallbackText(parsed) };
         const accountId = getAccount(event, ctx);
-        const originKey = stableOrigin(event, ctx, parsed.poll);
+        const originKey = stableOrigin(event, ctx);
         const earlier = journal.getByOrigin(originKey);
         if (earlier) {
-          logger.info("telegram-auto-poll: duplicate origin suppressed");
-          return { cancel: true, cancelReason: "telegram-auto-poll duplicate" };
+          logger.info("telegram-auto-poll: duplicate origin downgraded to text");
+          return { content: safeFallbackText(parsed) };
         }
         if (journal.countRecent(to, accountId, Date.now() - 3600000) >= perChatHourlyLimit) {
           logger.warn("telegram-auto-poll: hourly limit reached; falling back to choices");
-          return { content: fallbackText(parsed) };
+          return { content: safeFallbackText(parsed) };
         }
         const threadId = event.threadId ?? ctx?.threadId ?? event.metadata?.threadId;
         try {
           const record = journal.create({ to, accountId, threadId, intro: parsed.intro, poll: parsed.poll, originKey });
-          return { content: makeAnchor(record.intro, record.token) };
+          return { content: makeAnchor(record.intro, record.token, record.poll) };
         } catch (e) {
           logger.warn(`telegram-auto-poll: journal write failed; text fallback: ${e.message}`);
-          return { content: fallbackText(parsed) };
+          return { content: safeFallbackText(parsed) };
         }
       });
 
       api.on("message_sent", async (event, ctx) => {
         if (getChannel(event, ctx) !== "telegram" || typeof event?.content !== "string") return;
+        if (isFallbackText(event.content)) return;
         if (sampleStore) {
           pruneMisses();
           const key = missKey(stringOrEmpty(event.to), getAccount(event, ctx), event.content);
@@ -171,7 +195,8 @@ export function createPlugin({
         const record = journal.getByToken(token);
         if (!record || record.status !== "pending") return;
         // Do not act on a stale/rewritten message that happens to contain a token.
-        if (event.content !== makeAnchor(record.intro, record.token)) return;
+        if (event.content !== makeAnchor(record.intro, record.token, record.poll)
+          && event.content !== legacyAnchor(record.intro, record.token)) return;
         if (stringOrEmpty(event.to) !== record.to) return;
         const accountId = getAccount(event, ctx);
         if (accountId && record.accountId && accountId !== record.accountId) return;
@@ -201,7 +226,7 @@ export function createPlugin({
           logger.warn(`telegram-auto-poll: no CLI execution; sending readable fallback: ${e.message}`);
           // A definite local spawn failure means the poll command did not run.
           try { await sendText({ ...command, to: record.to, threadId: record.threadId,
-              accountId: record.accountId, message: fallbackText({ intro: "", poll: record.poll }) }); }
+              accountId: record.accountId, message: safeFallbackText({ intro: "", poll: record.poll }) }); }
           catch (fallbackError) { logger.warn(`telegram-auto-poll: fallback failed: ${fallbackError.message}`); }
         }
       });
