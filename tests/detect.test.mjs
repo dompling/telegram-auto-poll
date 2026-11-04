@@ -133,3 +133,93 @@ test("a parenthetical example within a decision is not a tutorial heading", () =
   assert.deepEqual(detectChoicePoll("要我先查，比如查看进程吗？还是你先执行 /restart？")?.poll.options,
     ["我先查，比如查看进程", "你先执行 /restart"]);
 });
+
+test("recognizes the reported installation choice with explanations between section headings", () => {
+  const text = readFileSync(new URL("./fixtures/install-choice.txt", import.meta.url), "utf8");
+  const parsed = detectChoicePoll(text, { durationSeconds: 3600 });
+  assert.deepEqual(parsed?.poll.options, [
+    "用 git clone 到 extensions 目录，再 link 进去", "直接替换现有目录内容", "先改 remote 再拉",
+  ]);
+  assert.equal(parsed.poll.question, "你选哪条路？");
+  assert.equal(parsed.intro, text.trim());
+  assert.equal(parsed.poll.durationSeconds, 3600);
+});
+
+test("recognizes common route and plan selection phrases", () => {
+  for (const question of ["你选哪条路？", "你想走哪条路线？", "你选哪一种？", "采用哪一项？", "你想用哪套方案？"]) {
+    const text = `A. 检查配置\nB. 查看日志\n${question}`;
+    assert.deepEqual(detectChoicePoll(text)?.poll.options, ["检查配置", "查看日志"], text);
+  }
+});
+
+test("uses the question rather than its trailing explanation for a ballot", () => {
+  for (const question of ["你选哪个？", "你选哪条路？"]) {
+    const text = `A. 检查配置\nB. 查看日志\n${question}我会先备份配置，再执行。`;
+    const parsed = detectChoicePoll(text);
+    assert.deepEqual(parsed?.poll.options, ["检查配置", "查看日志"]);
+    assert.equal(parsed.poll.question, question);
+  }
+  assert.equal(detectChoicePoll("是否继续？我会先备份配置。")?.poll.question, "是否继续？");
+  assert.deepEqual(detectChoicePoll("先检查配置还是先查看日志？我会保留原始文件。")?.poll.options,
+    ["先检查配置", "先查看日志"]);
+});
+
+test("uses section titles while preserving explanations, nested steps and code as the introduction", () => {
+  for (const [first, second] of [["**A. 部署到 `production`**", "**B. 发布到 `staging`**"],
+    ["### A：部署到 `production`", "### B：发布到 `staging`"],
+    ["(A) 部署到 `production`", "(B) 发布到 `staging`"]]) {
+    for (const placement of ["before", "after"]) {
+      const sections = `${first}\n1. 备份配置\n2. 保留日志\n\`\`\`sh\nA. 隐藏示例\nB. 另一个示例\n\`\`\`\n${second}\n保留旧版本，以便回滚。`;
+      const text = placement === "before" ? `请选择部署方案：\n${sections}` : `${sections}\n你选哪条路？我会先备份。`;
+      const parsed = detectChoicePoll(text);
+      assert.deepEqual(parsed?.poll.options, ["部署到 production", "发布到 staging"], text);
+      assert.equal(parsed.intro, text);
+    }
+  }
+});
+
+test("does not turn explained sections into polls without an unambiguous user choice", () => {
+  const sections = "A. 检查配置\n可以定位环境差异。\nB. 查看日志\n可以找到失败原因。";
+  for (const text of [
+    sections,
+    `${sections}\n你觉得怎么样？`,
+    `教程：\n${sections}\n你选哪条路？`,
+    `以下是一个示例：\n${sections}\n你选哪条路？我会先备份。`,
+    `操作步骤：\n${sections}\n你选哪条路？`,
+    `\`\`\`text\n${sections}\n\`\`\`\n你选哪条路？`,
+    `> A. 检查配置\n> 可以定位环境差异。\n> B. 查看日志\n你选哪条路？`,
+    `${sections}\n你选哪条路？或者输入你的自定义方案。`,
+    `不用投票。\n${sections}\n你选哪条路？`,
+    `${sections}\n你选哪条路？\nA. 今天\n选择日期。\nB. 明天\n选择日期。\n请选择时间：`,
+    "A. 检查配置\n说明。\nC. 查看日志\n说明。\n你选哪条路？",
+    "A. 检查配置\n说明。\nB. 查看日志\n说明。\nD. 重启服务\n你选哪条路？",
+    "A. 检查配置\n说明。\nB. 查看日志\n说明。\nB. 重启服务\n你选哪条路？",
+    "A. 相同\n说明。\nB. 相同\n说明。\n你选哪条路？",
+    `A. ${"长".repeat(101)}\n说明。\nB. 短\n说明。\n你选哪条路？`,
+  ]) assert.equal(detectChoicePoll(text), null, text);
+});
+
+test("nested steps in the last section cannot become a competing ballot", () => {
+  const text = "A. 检查配置\n先查看配置内容。\nB. 查看日志\n按下面的方法操作。\n1. 登录服务器\n2. 打开日志\n你选哪条路？";
+  assert.deepEqual(detectChoicePoll(text)?.poll.options, ["检查配置", "查看日志"]);
+});
+
+test("section association stops at a new choice list instead of borrowing its question", () => {
+  const sections = "A. 检查配置\n说明。\nB. 查看日志\n说明。";
+  assert.equal(detectChoicePoll(`${sections}\n新的选项如下：\nA. 重启服务\n说明。\n你选哪条路？`), null);
+  const text = `${sections}\n请选择执行时间：\n1. 今天\n2. 明天`;
+  assert.deepEqual(detectChoicePoll(text)?.poll.options, ["今天", "明天"]);
+  assert.equal(detectChoicePoll(text)?.poll.question, "请选择执行时间：");
+  const example = `以下是一个示例：\n${sections}\n说明结束。\n接下来需要实际操作。\n请选择操作：\n1. 执行\n2. 取消`;
+  assert.deepEqual(detectChoicePoll(example)?.poll.options, ["执行", "取消"]);
+});
+
+test("refuses a section list exceeding the option limit rather than dropping its last heading", () => {
+  const text = "请选择方案：\n" + Array.from({ length: 13 }, (_, i) => `${String.fromCharCode(65 + i)}. 方案${i + 1}\n说明。`).join("\n");
+  assert.equal(detectChoicePoll(text), null);
+});
+
+test("descriptive mentions of selection do not split section alternatives", () => {
+  const text = "A. 直接安装\n使用哪条命令取决于系统版本。\nB. 使用容器\n说明。\n你选哪条路？";
+  assert.deepEqual(detectChoicePoll(text)?.poll.options, ["直接安装", "使用容器"]);
+});

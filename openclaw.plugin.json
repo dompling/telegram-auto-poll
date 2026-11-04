@@ -2,7 +2,7 @@
   "id": "telegram-auto-poll",
   "name": "Telegram Auto Poll",
   "description": "Turn Telegram choices and confirmations into native polls, with per-turn guidance and automatic detection",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "activation": {
     "onStartup": true,
     "onCapabilities": [

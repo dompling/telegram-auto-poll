@@ -1,0 +1,29 @@
+两种写法都被拒绝：--accept-capabilities 被判定为高风险，因此安装请求被转交到人工审批；而 URL 语法和 github: 协议语法本身也被 OpenClaw 的安装器拒绝。
+
+**当前状态**
+
+• 远端确认存在：main 分支为 7eebaca5
+
+• 本机版本为 0.2.1，且**不是 git 安装**（目录里没有 .git），这是关键问题：没有 git 元数据，就无法“跟踪 main 分支、后续 git pull 更新”
+
+• openclaw plugins install 对 URL 和 github: 两种来源都报 unsupported npm spec
+
+**可以做的方案（三选一）**
+
+**A. 用 git clone 到 extensions 目录，再 link 进去**
+
+git clone -b main https://github.com/dompling/telegram-auto-poll.git ~/.openclaw/extensions/telegram-auto-poll-git
+
+openclaw plugins install ~/.openclaw/extensions/telegram-auto-poll-git --link这样保留 .git，后续可以用 git pull 更新。需要先移除旧版目录（会备份）。
+
+**B. 直接替换现有目录内容**
+
+把旧目录备份后，用 git clone 到同一个路径，配置保持不变。做法最直接，但需要注意 OpenClaw 对目录的识别方式。
+
+**C. 先改 remote 再拉**
+
+在当前目录执行 git init + git remote add，再接 fetch 覆盖。但当前目录不是 git 仓库，覆盖旧文件时容易混淆。
+
+另外提醒：--accept-capabilities 会跳过插件权限审查，这条命令需要你在审批卡上放行一次；或者我去掉这个参数，先安装再单独审查权限。
+
+你选哪条路？我会先备份旧目录，再开始执行。

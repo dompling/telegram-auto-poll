@@ -278,3 +278,23 @@ test("the real Doctor response reaches the native poll sender after successful t
     assert.equal(getRecord(s.path).status, "sent");
   } finally { s.cleanup(); }
 });
+
+test("the real installation decision sends its section titles only after the complete explanation is delivered", async () => {
+  const text = readFileSync(new URL("./fixtures/install-choice.txt", import.meta.url), "utf8");
+  const polls = [];
+  const s = setup({ sendPoll: async params => { polls.push(params); } });
+  try {
+    const anchor = s.hooks.message_sending(outgoing("12345", text), demoContext);
+    assert.ok(anchor?.content.startsWith(text.trim()));
+    assert.match(anchor.content, /投票编号/);
+    assert.equal(polls.length, 0);
+    await s.hooks.message_sent(confirmed(anchor), demoContext);
+    await s.hooks.message_sent(confirmed(anchor), demoContext);
+    assert.equal(polls.length, 1);
+    assert.equal(polls[0].poll.question, "你选哪条路？");
+    assert.deepEqual(polls[0].poll.options, [
+      "用 git clone 到 extensions 目录，再 link 进去", "直接替换现有目录内容", "先改 remote 再拉",
+    ]);
+    assert.equal(getRecord(s.path).status, "sent");
+  } finally { s.cleanup(); }
+});
