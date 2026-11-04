@@ -1,0 +1,9 @@
+# Doctor report choice regression
+
+Problem: The real Telegram Doctor report contains explanatory bullet lists followed by a direct binary question. v0.2.0 returned null before reaching that question: every multi-item list was treated as a candidate ballot, even with no selection question, and parenthetical 比如 in a diagnostic bullet was treated as tutorial context.
+
+Fix: Only consider a list as a ballot candidate when associated with a selection question. Explanatory lists allow scanning the terminal decision. Recognize tutorial headings separately from parenthetical examples. Pair adjacent confirmation/alternative questions and preserve actors and inline command values while removing question particles from ballot labels.
+
+Verification plan: Preserve the actual report as a fixture, reproduce the missed conversion in detector and plugin delivery tests, cover Unicode bullets, several explanatory lists, final confirmations, adjacent and newline-separated question pairs, and tutorial/code/quote exclusions. Run the full suite and real host loader before installing v0.2.1 and hot reloading. Do not execute Doctor actions, restart the Gateway, alter GitHub permissions or send unsolicited Telegram polls as part of this fix.
+
+Progress: Original tests 31/31. The reported scenario produced 4 expected failures before implementation. Independent review identified adjacent diagnostic-list priority, earlier questions leaking into options, and parenthetical examples inside decisions; 3 more RED→GREEN regressions protect those cases. Final full suite 39/39, detector/entry syntax checks pass, real isolated host loader reports v0.2.1 loaded with all 3 hooks and no diagnostics. Native installation applied Gateway generation 7 without restart. Final detector bytes match the installed source. No Telegram message was sent during this repair; actual new message/click-through behavior awaits normal user interaction.

@@ -1,0 +1,27 @@
+Doctor 运行完了，遇到一个阻塞项。
+
+**检查结果**
+
+`Doctor stopped because a state migration refused to continue`
+
+失败点：
+```
+transcript-directives (step-refused):
+OpenClawAgentDatabaseLeaseActiveError:
+Agent main database is still open in another process
+```
+
+也就是说，主 agent 的 SQLite 数据库被另一个进程占用着；数据库迁移无法获得锁，最终中断。后续 4 个迁移检查（migration-detection、device-auth、device-identity、meeting-transcripts）也因此被跳过，并非它们自身有问题。
+
+**另一条警告：GitHub 插件被排除在外**
+```
+plugins.allow 里没有 "github"，链接预览和 reader 不可用
+```
+要么把 `github` 加进 allowlist，要么显式设 `plugins.entries.github.enabled=false`，让这条提示彻底消失。Doctor 不会自动修改，需要你决定。
+
+**关于数据库被占用**，可能的来源是：
+
+- 之前跑过的 gateway 进程没有完全退出，还持有数据库句柄
+- 某个 agent 会话（比如另一个 agent）仍在使用同一个数据库
+
+要我先查出是哪个进程占着数据库吗？还是你先执行 `/restart`，再让我重跑 doctor？
