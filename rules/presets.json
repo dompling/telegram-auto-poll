@@ -1,0 +1,204 @@
+{
+  "version": 1,
+  "patterns": {
+    "SELECTION": {
+      "source": "请选择|请选|(?:你|您).*(?:选一个|选哪个|选哪一个|选择哪|选什么|先做哪个|先做哪一个|选(?:择)?\\s*(?:方案|选项)?\\s*(?:[A-L]|\\d{1,2}))|(?:你|您).*(?:倾向|喜欢|希望).*(?:哪个|哪一个|哪种|哪一种|哪项|哪一项|哪条|哪一条|哪套|哪一套)|(?:选|选择|采用|使用|用|走|要|先做|优先处理)(?:哪个|哪一个|哪种|哪一种|哪项|哪一项|哪条|哪一条|哪套|哪一套)|which\\b.*\\b(?:prefer|choose|pick|like)|\\b(?:please\\s+)?(?:choose|pick|select)\\b",
+      "flags": "i"
+    },
+    "KNOWLEDGE": {
+      "source": "为什么|怎么|如何|哪里|何时|谁|多少|知道|明白|理解",
+      "flags": ""
+    },
+    "FREE_INPUT": {
+      "source": "自定义|自由输入|自己的方案|type your own|(?:回复|输入|告诉我|提出).*(?:其他|其它|别的|你自己的)|(?:其他|其它|别的)想法.*(?:直接说|告诉我|回复)|(?:suggest|enter|type|reply with).*(?:another|your own|custom)",
+      "flags": "i"
+    },
+    "WITHDRAWN": {
+      "source": "不用了|(?:不用|不必|无需|不需要)(?:再)?(?:选择|选|确认|继续)|(?:任务|安装|操作)(?:已经|已)?(?:取消|结束|执行完成)|(?:已经|已)取消(?:安装|操作|任务)?",
+      "flags": ""
+    },
+    "OPTION": {
+      "source": "^(?:[-*+]\\s+|\\d{1,2}[.、)）]\\s*|[A-La-l][.、:：)）]\\s*|[（(](?:\\d{1,2}|[A-La-l])[)）]\\s*)(.+)$",
+      "flags": ""
+    },
+    "LETTER_SECTION": {
+      "source": "^(?:[-*+]\\s+)?(?:方案\\s*|选项\\s*)?(?:([A-Za-z])[.、:：)）]\\s*|[（(]([A-Za-z])[)）]\\s*)(.+)$",
+      "flags": ""
+    },
+    "NUMBER_SECTION": {
+      "source": "^(?:[-*+]\\s+)?(?:方案\\s*|选项\\s*)?(?:(\\d+)[.、:：)）]\\s*|[（(](\\d+)[)）]\\s*)(.+)$",
+      "flags": ""
+    },
+    "MARKDOWN_EMPHASIS": {
+      "source": "\\*\\*|__",
+      "flags": "g"
+    },
+    "MARKDOWN_HEADING": {
+      "source": "^#{1,6}\\s+",
+      "flags": ""
+    },
+    "LINE_BREAK": {
+      "source": "\\r?\\n",
+      "flags": ""
+    },
+    "CODE_FENCE": {
+      "source": "^\\s*(`{3,}|~{3,})",
+      "flags": ""
+    },
+    "BLOCKQUOTE": {
+      "source": "^\\s*>",
+      "flags": ""
+    },
+    "INLINE_CODE": {
+      "source": "`([^`]*)`",
+      "flags": "g"
+    },
+    "OPTION_LETTER_PREFIX": {
+      "source": "^(?:选项\\s*)?[A-La-l][：:]\\s*",
+      "flags": ""
+    },
+    "OPTION_TRAILING_PUNCTUATION": {
+      "source": "[，,。；;]+$",
+      "flags": ""
+    },
+    "ILLUSTRATION_HEADING": {
+      "source": "^(?:示例|教程|例如|比如|example|tutorial)|^(?:以下|下面|这里|这是|举个).*(?:示例|例子|教程|example|tutorial)",
+      "flags": "i"
+    },
+    "ILLUSTRATION_STEPS": {
+      "source": "操作步骤|以下步骤|依次执行|然后.*(?:执行|操作)",
+      "flags": ""
+    },
+    "ILLUSTRATION_TEMPLATE": {
+      "source": "(?:这是|只是|仅供|仅是).*(?:示例|例子|模板)|(?:生成|展示)(?:以下|下列)(?:问题|问句|文本|字符串)",
+      "flags": ""
+    },
+    "BULLET_PREFIX": {
+      "source": "^•\\s*",
+      "flags": ""
+    },
+    "QUESTION_TRAILING_MARK": {
+      "source": "[？?]+$",
+      "flags": ""
+    },
+    "QUESTION_TRAILING_PARTICLE": {
+      "source": "[吗呢]$",
+      "flags": ""
+    },
+    "ALTERNATIVE_LEADING_WANT": {
+      "source": "^要(?=我|我们|你|您)",
+      "flags": ""
+    },
+    "QUESTION_SENTENCES": {
+      "source": "[^。！!？?]+[？?]",
+      "flags": "g"
+    },
+    "ALTERNATIVE_CONTINUATION": {
+      "source": "^还是",
+      "flags": ""
+    },
+    "QUESTION_END": {
+      "source": "[？?]$",
+      "flags": ""
+    },
+    "QUESTION_MARK": {
+      "source": "[？?]",
+      "flags": ""
+    },
+    "COLON_END": {
+      "source": "[：:]$",
+      "flags": ""
+    },
+    "SELECTION_IMPERATIVE": {
+      "source": "^(?:请选择|请选|(?:你|您).*选一个|(?:please\\s+)?(?:choose|pick|select)\\b)",
+      "flags": "i"
+    },
+    "NUMBER_REFERENCE_INTENT": {
+      "source": "(?:选(?:择)?|采用|使用|用)\\s*(?:方案|选项)?\\s*\\d+|(?:方案|选项|option|plan)\\s*\\d+",
+      "flags": "i"
+    },
+    "NUMBER_REFERENCES": {
+      "source": "(?:^|[^\\dA-Za-z.])((?:(?:方案|选项|option|plan)\\s*)?\\d+(?:\\s*(?:[、,，/]|还是|或者?|或|和|与|or|and)\\s*(?:(?:方案|选项|option|plan)\\s*)?\\d+)+)(?=\\s*(?:[？?，,。；;！!]|$))",
+      "flags": "i"
+    },
+    "LETTER_REFERENCES": {
+      "source": "(?:^|[^A-Za-z])((?:(?:方案|选项|option|plan)\\s*)?[A-Z](?:\\s*(?:[、,，/]|还是|或者?|或|和|与|or|and)\\s*(?:(?:方案|选项|option|plan)\\s*)?[A-Z])+)(?![A-Za-z])",
+      "flags": "i"
+    },
+    "REFERENCE_PREFIX": {
+      "source": "方案|选项|option|plan",
+      "flags": "gi"
+    },
+    "REFERENCE_SEPARATOR": {
+      "source": "\\s*(?:[、,，/]|还是|或者?|或|和|与|or|and)\\s*",
+      "flags": "i"
+    },
+    "ALTERNATIVE_LEADING_CONTINUATION": {
+      "source": "^(?:你|您|我|我们)?还是",
+      "flags": ""
+    },
+    "CHINESE_ALTERNATIVE_PREFIX": {
+      "source": "^(?:请问[，,\\s]*)?(?:(?:你|您)(?:是)?(?:想|要|希望|更喜欢(?:哪个|哪一个)?|更倾向于(?:哪个|哪一个)?)|(?:你|您)(?:选|选择)|请选择)[：:\\s]*",
+      "flags": ""
+    },
+    "CHINESE_ALTERNATIVE_SEPARATOR": {
+      "source": "[，,]?\\s*还是\\s*",
+      "flags": ""
+    },
+    "ENGLISH_OR": {
+      "source": "\\bor\\b",
+      "flags": "i"
+    },
+    "ENGLISH_ALTERNATIVE_INTENT": {
+      "source": "^(?:which|would you|do you|should we|please choose)",
+      "flags": "i"
+    },
+    "ENGLISH_ALTERNATIVE_PREFIX": {
+      "source": "^(?:which\\b.*?:\\s*|(?:would|do) you (?:prefer|want)\\s+|should we\\s+|please choose:?\\s*)",
+      "flags": "i"
+    },
+    "ENGLISH_ALTERNATIVE_SEPARATOR": {
+      "source": "\\s+or\\s+",
+      "flags": "i"
+    },
+    "SECTION_CONFIRMATION": {
+      "source": "^(?:你|您)(?:选|选择|采用|使用)\\s*(?:方案|选项)?\\s*(?:[A-Z]|\\d{1,2})\\s*[吗么]$",
+      "flags": "i"
+    },
+    "CONFIRMATION": {
+      "source": "^(?:请问[，,\\s]*)?(?:(?:你|您)?(?:是否|要不要|需不需要|能不能|可不可以|愿不愿意)|(?:你|您)?(?:还是)?(?:想|希望|需要|要|可以|方便|愿意).*[吗么]$)|^(?:do you want|would you like|shall we|should (?:I|we))\\b",
+      "flags": "i"
+    },
+    "POLL_EXCLUSION": {
+      "source": "(?:不要|不用|无需|不需要)(?:再)?(?:发起|发送|使用)?投票|(?:do not|don't)\\s+(?:use\\s+)?poll",
+      "flags": "i"
+    },
+    "ALTERNATIVE_JOINER": {
+      "source": "还是|\\bor\\b",
+      "flags": "i"
+    },
+    "MULTI_CHOICE": {
+      "source": "多选|多个|multiple|all that apply",
+      "flags": "i"
+    }
+  },
+  "learnedRules": [],
+  "families": [
+    {
+      "id": "selection",
+      "description": "Explicit Chinese and English choices, letter/number sections, and section references."
+    },
+    {
+      "id": "confirmation",
+      "description": "Chinese and English binary confirmation and alternative questions."
+    },
+    {
+      "id": "exclusion",
+      "description": "Examples, knowledge questions, free input, withdrawn actions, and explicit poll opt-out."
+    },
+    {
+      "id": "text",
+      "description": "Visible Markdown lines and literal label/question cleanup."
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+# Dependencies and package-manager caches
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# Build output and test coverage
+dist/
+build/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+.eslintcache
+
+# Logs, temporary files, and caches
+*.log
+*.tmp
+*.temp
+.cache/
+tmp/
+temp/
+
+# Local secrets and environment configuration
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+.npmrc
+*.pem
+*.key
+*.p8
+*.p12
+*.pfx
+
+# OpenClaw runtime state (not the shipped rules/ fixtures)
+/.openclaw/
+/telegram-auto-poll/
+/telegram-auto-poll-state.json
+/state.json
+/journal.json
+/samples.json
+/rules.json
+/history.jsonl
+
+# OS and editor-generated files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.fleet/
+*.swp
+*.swo
+*~

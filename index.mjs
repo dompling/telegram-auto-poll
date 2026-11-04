@@ -1,8 +1,11 @@
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { parsePollText, fallbackText } from "./src/parse.mjs";
-import { detectChoicePoll } from "./src/detect.mjs";
+import { createChoiceDetector, detectChoicePoll } from "./src/detect.mjs";
+import { RuleStore, presetDocument } from "./src/rules.mjs";
+import { SampleStore } from "./src/samples.mjs";
+import { createLearningTool, isLearningCandidate, learningPrompt } from "./src/learning.mjs";
 import { pollGuidance } from "./src/guidance.mjs";
 import { PollJournal } from "./src/state.mjs";
 import { DefiniteDeliveryError, sendPollViaCli, sendTextViaCli } from "./src/send.mjs";
@@ -53,13 +56,53 @@ export function createPlugin({
       const command = { cliPath, timeoutMs };
       const durationSeconds = Number.isInteger(config.defaultDurationSeconds)
         ? Math.max(5, Math.min(604800, config.defaultDurationSeconds)) : 300;
+      const learningEnabled = config.learningEnabled !== false && config.autoDetect !== false
+        && typeof api.registerTool === "function";
+      const dataDirectory = join(dirname(statePath), "telegram-auto-poll");
+      const rulesPath = stringOrEmpty(config.rulesPath) || join(dataDirectory, "rules.json");
+      let ruleStore, sampleStore, document = presetDocument, detect = detectChoicePoll;
+      if (config.autoDetect !== false) {
+        try {
+          ruleStore = new RuleStore(rulesPath, { logger });
+          document = ruleStore.load();
+          detect = createChoiceDetector(document);
+        } catch (error) { logger.warn(`telegram-auto-poll: using preset rules: ${error.message}`); }
+      }
+      if (learningEnabled && ruleStore) {
+        try { sampleStore = new SampleStore(join(dirname(rulesPath), "samples.json")); }
+        catch (error) { logger.warn(`telegram-auto-poll: sample learning disabled: ${error.message}`); }
+      }
+      if (sampleStore) api.registerTool((ctx = {}) => {
+        if ((ctx.messageChannel ?? ctx.deliveryContext?.channel) !== "telegram") return null;
+        const to = stringOrEmpty(ctx.nativeChannelId ?? ctx.deliveryContext?.to);
+        const accountId = stringOrEmpty(ctx.agentAccountId ?? ctx.deliveryContext?.accountId);
+        if (!to || (allowedChatIds.length && !allowedChatIds.includes(to))) return null;
+        return createLearningTool({ ruleStore, sampleStore, scope: { to, accountId },
+          assertCurrent: () => ctx.assertInvocationCurrent?.() });
+      }, { name: "telegram_auto_poll_learn" });
 
-      if (config.promptGuidance !== false) api.on("before_prompt_build", (_event, ctx) => {
+      const stagedMisses = new Map();
+      function missKey(to, accountId, content) {
+        return createHash("sha256").update(JSON.stringify([to, accountId, content])).digest("hex");
+      }
+      function pruneMisses() {
+        const cutoff = Date.now() - 300000;
+        for (const [key, value] of stagedMisses) if (value.createdAt < cutoff) stagedMisses.delete(key);
+        while (stagedMisses.size >= 100) stagedMisses.delete(stagedMisses.keys().next().value);
+      }
+
+      if (config.promptGuidance !== false || sampleStore) api.on("before_prompt_build", (_event, ctx) => {
         // Agent contexts use channel/messageProvider; channelId can be a chat ID.
         if ((ctx?.channel ?? ctx?.messageProvider ?? ctx?.channelId) !== "telegram") return;
         const chatId = stringOrEmpty(ctx?.chatId ?? ctx?.channelId);
         if (allowedChatIds.length && (!chatId || !allowedChatIds.includes(chatId))) return;
-        return { appendSystemContext: pollGuidance(durationSeconds) };
+        let learning = {};
+        if (sampleStore && chatId) {
+          const accountId = stringOrEmpty(ctx?.accountId);
+          learning = learningPrompt(sampleStore.pending({ to: chatId, accountId, limit: 1 }));
+        }
+        const guidance = config.promptGuidance !== false ? pollGuidance(durationSeconds) : "";
+        return { ...learning, appendSystemContext: [guidance, learning.appendSystemContext].filter(Boolean).join("\n\n") };
       });
 
       // No network side effects here. Later hooks can still rewrite or cancel
@@ -70,10 +113,23 @@ export function createPlugin({
         let parsed;
         try {
           parsed = parsePollText(event.content);
-          if (!parsed && config.autoDetect !== false) parsed = detectChoicePoll(event.content, { durationSeconds });
+          if (!parsed && config.autoDetect !== false) {
+            const next = ruleStore?.load() ?? document;
+            if (next !== document) { detect = createChoiceDetector(next); document = next; }
+            parsed = detect(event.content, { durationSeconds });
+          }
         }
         catch (e) { logger.warn(`telegram-auto-poll: invalid poll: ${e.message}`); return; }
-        if (!parsed) return;
+        if (!parsed) {
+          const to = stringOrEmpty(event.to), accountId = getAccount(event, ctx);
+          if (sampleStore && to && (!allowedChatIds.length || allowedChatIds.includes(to)) && isLearningCandidate(event.content)) {
+            pruneMisses();
+            stagedMisses.set(missKey(to, accountId, event.content), {
+              to, accountId, content: event.content, createdAt: Date.now(),
+            });
+          }
+          return;
+        }
         const to = stringOrEmpty(event.to);
         if (!to) return { content: fallbackText(parsed) };
         if (allowedChatIds.length && !allowedChatIds.includes(to)) return { content: fallbackText(parsed) };
@@ -100,6 +156,16 @@ export function createPlugin({
 
       api.on("message_sent", async (event, ctx) => {
         if (getChannel(event, ctx) !== "telegram" || typeof event?.content !== "string") return;
+        if (sampleStore) {
+          pruneMisses();
+          const key = missKey(stringOrEmpty(event.to), getAccount(event, ctx), event.content);
+          const staged = stagedMisses.get(key);
+          stagedMisses.delete(key);
+          if (staged && event.success === true) {
+            try { sampleStore.capture({ to: staged.to, accountId: staged.accountId, content: staged.content }); }
+            catch (error) { logger.warn(`telegram-auto-poll: cannot collect choice sample: ${error.message}`); }
+          }
+        }
         const token = TOKEN_RE.exec(event.content)?.[1];
         if (!token) return;
         const record = journal.getByToken(token);

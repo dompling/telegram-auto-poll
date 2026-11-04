@@ -298,3 +298,21 @@ test("the real installation decision sends its section titles only after the com
     assert.equal(getRecord(s.path).status, "sent");
   } finally { s.cleanup(); }
 });
+
+test("numbered installation sections reach the sender without explanatory commands becoming choices", async () => {
+  const text = readFileSync(new URL("./fixtures/install-choice.txt", import.meta.url), "utf8")
+    .replace("**A.", "**1.").replace("**B.", "**2.").replace("**C.", "**3.");
+  const polls = [];
+  const s = setup({ sendPoll: async params => { polls.push(params); } });
+  try {
+    const anchor = s.hooks.message_sending(outgoing("12345", text), demoContext);
+    assert.ok(anchor?.content.startsWith(text.trim()));
+    assert.equal(polls.length, 0);
+    await s.hooks.message_sent(confirmed(anchor), demoContext);
+    assert.equal(polls.length, 1);
+    assert.deepEqual(polls[0].poll.options, [
+      "用 git clone 到 extensions 目录，再 link 进去", "直接替换现有目录内容", "先改 remote 再拉",
+    ]);
+    assert.equal(getRecord(s.path).status, "sent");
+  } finally { s.cleanup(); }
+});

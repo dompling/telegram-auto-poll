@@ -1,0 +1,983 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "fixture-install",
+      "text": "两种写法都被拒绝：--accept-capabilities 被判定为高风险，因此安装请求被转交到人工审批；而 URL 语法和 github: 协议语法本身也被 OpenClaw 的安装器拒绝。\n\n**当前状态**\n\n• 远端确认存在：main 分支为 7eebaca5\n\n• 本机版本为 0.2.1，且**不是 git 安装**（目录里没有 .git），这是关键问题：没有 git 元数据，就无法“跟踪 main 分支、后续 git pull 更新”\n\n• openclaw plugins install 对 URL 和 github: 两种来源都报 unsupported npm spec\n\n**可以做的方案（三选一）**\n\n**A. 用 git clone 到 extensions 目录，再 link 进去**\n\ngit clone -b main https://github.com/dompling/telegram-auto-poll.git ~/.openclaw/extensions/telegram-auto-poll-git\n\nopenclaw plugins install ~/.openclaw/extensions/telegram-auto-poll-git --link这样保留 .git，后续可以用 git pull 更新。需要先移除旧版目录（会备份）。\n\n**B. 直接替换现有目录内容**\n\n把旧目录备份后，用 git clone 到同一个路径，配置保持不变。做法最直接，但需要注意 OpenClaw 对目录的识别方式。\n\n**C. 先改 remote 再拉**\n\n在当前目录执行 git init + git remote add，再接 fetch 覆盖。但当前目录不是 git 仓库，覆盖旧文件时容易混淆。\n\n另外提醒：--accept-capabilities 会跳过插件权限审查，这条命令需要你在审批卡上放行一次；或者我去掉这个参数，先安装再单独审查权限。\n\n你选哪条路？我会先备份旧目录，再开始执行。\n",
+      "expected": {
+        "question": "你选哪条路？",
+        "options": [
+          "用 git clone 到 extensions 目录，再 link 进去",
+          "直接替换现有目录内容",
+          "先改 remote 再拉"
+        ]
+      }
+    },
+    {
+      "id": "fixture-doctor",
+      "text": "Doctor 运行完了，遇到一个阻塞项。\n\n**检查结果**\n\n`Doctor stopped because a state migration refused to continue`\n\n失败点：\n```\ntranscript-directives (step-refused):\nOpenClawAgentDatabaseLeaseActiveError:\nAgent main database is still open in another process\n```\n\n也就是说，主 agent 的 SQLite 数据库被另一个进程占用着；数据库迁移无法获得锁，最终中断。后续 4 个迁移检查（migration-detection、device-auth、device-identity、meeting-transcripts）也因此被跳过，并非它们自身有问题。\n\n**另一条警告：GitHub 插件被排除在外**\n```\nplugins.allow 里没有 \"github\"，链接预览和 reader 不可用\n```\n要么把 `github` 加进 allowlist，要么显式设 `plugins.entries.github.enabled=false`，让这条提示彻底消失。Doctor 不会自动修改，需要你决定。\n\n**关于数据库被占用**，可能的来源是：\n\n- 之前跑过的 gateway 进程没有完全退出，还持有数据库句柄\n- 某个 agent 会话（比如另一个 agent）仍在使用同一个数据库\n\n要我先查出是哪个进程占着数据库吗？还是你先执行 `/restart`，再让我重跑 doctor？\n",
+      "expected": {
+        "question": "要我先查出是哪个进程占着数据库吗？还是你先执行 /restart，再让我重跑 doctor？",
+        "options": [
+          "我先查出是哪个进程占着数据库",
+          "你先执行 /restart，再让我重跑 doctor"
+        ]
+      }
+    },
+    {
+      "id": "list-numbered-before",
+      "text": "请选择下一步：\n1. 检查配置\n2. 查看日志",
+      "expected": {
+        "question": "请选择下一步：",
+        "options": [
+          "检查配置",
+          "查看日志"
+        ]
+      }
+    },
+    {
+      "id": "list-bullets-after",
+      "text": "- 检查配置\n- 查看日志\n你想先做哪个？",
+      "expected": {
+        "question": "你想先做哪个？",
+        "options": [
+          "检查配置",
+          "查看日志"
+        ]
+      }
+    },
+    {
+      "id": "list-bold-letter",
+      "text": "你想先做哪个？\n**A：检查配置**\n**B：查看日志**",
+      "expected": {
+        "question": "你想先做哪个？",
+        "options": [
+          "检查配置",
+          "查看日志"
+        ]
+      }
+    },
+    {
+      "id": "list-select-one",
+      "text": "你选一个：\n1. 检查配置\n2. 查看日志",
+      "expected": {
+        "question": "你选一个：",
+        "options": [
+          "检查配置",
+          "查看日志"
+        ]
+      }
+    },
+    {
+      "id": "list-preference",
+      "text": "你更倾向哪一个？\n1. 检查配置\n2. 查看日志",
+      "expected": {
+        "question": "你更倾向哪一个？",
+        "options": [
+          "检查配置",
+          "查看日志"
+        ]
+      }
+    },
+    {
+      "id": "inline-actions",
+      "text": "你想先检查配置，还是先查看日志？",
+      "expected": {
+        "question": "你想先检查配置，还是先查看日志？",
+        "options": [
+          "先检查配置",
+          "先查看日志"
+        ]
+      }
+    },
+    {
+      "id": "inline-schedule",
+      "text": "现在执行还是稍后再做？",
+      "expected": {
+        "question": "现在执行还是稍后再做？",
+        "options": [
+          "现在执行",
+          "稍后再做"
+        ]
+      }
+    },
+    {
+      "id": "inline-labels",
+      "text": "你选 A：检查配置，还是 B：查看日志？",
+      "expected": {
+        "question": "你选 A：检查配置，还是 B：查看日志？",
+        "options": [
+          "检查配置",
+          "查看日志"
+        ]
+      }
+    },
+    {
+      "id": "inline-english",
+      "text": "Which do you prefer: check config or view logs?",
+      "expected": {
+        "question": "Which do you prefer: check config or view logs?",
+        "options": [
+          "check config",
+          "view logs"
+        ]
+      }
+    },
+    {
+      "id": "confirmation-continue",
+      "text": "是否继续？",
+      "expected": {
+        "question": "是否继续？",
+        "options": [
+          "是",
+          "否"
+        ]
+      }
+    },
+    {
+      "id": "confirmation-help",
+      "text": "需要我帮你检查吗？",
+      "expected": {
+        "question": "需要我帮你检查吗？",
+        "options": [
+          "是",
+          "否"
+        ]
+      }
+    },
+    {
+      "id": "confirmation-execute",
+      "text": "要不要现在执行？",
+      "expected": {
+        "question": "要不要现在执行？",
+        "options": [
+          "是",
+          "否"
+        ]
+      }
+    },
+    {
+      "id": "confirmation-want",
+      "text": "你想继续吗？",
+      "expected": {
+        "question": "你想继续吗？",
+        "options": [
+          "是",
+          "否"
+        ]
+      }
+    },
+    {
+      "id": "confirmation-hope",
+      "text": "你希望我现在执行吗？",
+      "expected": {
+        "question": "你希望我现在执行吗？",
+        "options": [
+          "是",
+          "否"
+        ]
+      }
+    },
+    {
+      "id": "confirmation-still",
+      "text": "你还是要继续吗？",
+      "expected": {
+        "question": "你还是要继续吗？",
+        "options": [
+          "是",
+          "否"
+        ]
+      }
+    },
+    {
+      "id": "confirmation-cancel",
+      "text": "是否取消部署？",
+      "expected": {
+        "question": "是否取消部署？",
+        "options": [
+          "是",
+          "否"
+        ]
+      }
+    },
+    {
+      "id": "confirmation-english",
+      "text": "Do you want me to continue?",
+      "expected": {
+        "question": "Do you want me to continue?",
+        "options": [
+          "是",
+          "否"
+        ]
+      }
+    },
+    {
+      "id": "inline-code-labels",
+      "text": "请选择：\n1. 部署到 `production`\n2. 发布到 `staging`",
+      "expected": {
+        "question": "请选择：",
+        "options": [
+          "部署到 production",
+          "发布到 staging"
+        ]
+      }
+    },
+    {
+      "id": "unicode-labels",
+      "text": "请选择：\n1. 🚀 部署\n2. 🔎 检查",
+      "expected": {
+        "question": "请选择：",
+        "options": [
+          "🚀 部署",
+          "🔎 检查"
+        ]
+      }
+    },
+    {
+      "id": "wording-backup-promise",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你选哪条路？我会先备份旧目录。",
+      "expected": {
+        "question": "你选哪条路？",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录",
+          "在原目录关联远程仓库"
+        ]
+      }
+    },
+    {
+      "id": "wording-preferred-route",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你更倾向哪条路线？我会先备份旧目录。",
+      "expected": {
+        "question": "你更倾向哪条路线？",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录",
+          "在原目录关联远程仓库"
+        ]
+      }
+    },
+    {
+      "id": "wording-preferred-plan",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你更倾向于哪一套方案？",
+      "expected": {
+        "question": "你更倾向于哪一套方案？",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录",
+          "在原目录关联远程仓库"
+        ]
+      }
+    },
+    {
+      "id": "wording-preferred-method",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你更喜欢哪一种方式？",
+      "expected": {
+        "question": "你更喜欢哪一种方式？",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录",
+          "在原目录关联远程仓库"
+        ]
+      }
+    },
+    {
+      "id": "wording-desired-approach",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你希望采用哪一种方式？我会按你选择的方案执行。",
+      "expected": {
+        "question": "你希望采用哪一种方式？",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录",
+          "在原目录关联远程仓库"
+        ]
+      }
+    },
+    {
+      "id": "wording-want-plan",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你要哪个方案？",
+      "expected": {
+        "question": "你要哪个方案？",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录",
+          "在原目录关联远程仓库"
+        ]
+      }
+    },
+    {
+      "id": "wording-explicit-selection",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n请选择安装方式：",
+      "expected": {
+        "question": "请选择安装方式：",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录",
+          "在原目录关联远程仓库"
+        ]
+      }
+    },
+    {
+      "id": "wording-recommendation",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n选哪一条比较合适？我建议 A，但由你决定。",
+      "expected": {
+        "question": "选哪一条比较合适？",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录",
+          "在原目录关联远程仓库"
+        ]
+      }
+    },
+    {
+      "id": "wording-backup-next-line",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你想选哪一个方案？\n我会先备份，确认后开始。",
+      "expected": {
+        "question": "你想选哪一个方案？",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录",
+          "在原目录关联远程仓库"
+        ]
+      }
+    },
+    {
+      "id": "wording-all-references",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你选 A、B 还是 C？我会先备份。",
+      "expected": {
+        "question": "你选 A、B 还是 C？",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录",
+          "在原目录关联远程仓库"
+        ]
+      }
+    },
+    {
+      "id": "wording-english-preference",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\nWhich approach would you prefer? I'll back up the directory first.",
+      "expected": {
+        "question": "Which approach would you prefer?",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录",
+          "在原目录关联远程仓库"
+        ]
+      }
+    },
+    {
+      "id": "wording-english-pronoun",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\nWhich option should I choose?",
+      "expected": {
+        "question": "Which option should I choose?",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录",
+          "在原目录关联远程仓库"
+        ]
+      }
+    },
+    {
+      "id": "wording-english-article",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\nPlease choose a route:",
+      "expected": {
+        "question": "Please choose a route:",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录",
+          "在原目录关联远程仓库"
+        ]
+      }
+    },
+    {
+      "id": "wording-backup-complete",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你选哪条路？我已经完成旧目录备份，选好后再安装。",
+      "expected": {
+        "question": "你选哪条路？",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录",
+          "在原目录关联远程仓库"
+        ]
+      }
+    },
+    {
+      "id": "wording-backup-ready",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你选哪条路？备份已经完成，随时可以开始。",
+      "expected": {
+        "question": "你选哪条路？",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录",
+          "在原目录关联远程仓库"
+        ]
+      }
+    },
+    {
+      "id": "letter-subset",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你选 A 还是 B？",
+      "expected": {
+        "question": "你选 A 还是 B？",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录"
+        ]
+      }
+    },
+    {
+      "id": "letter-subset-reordered",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你选方案 C 还是方案 A？",
+      "expected": {
+        "question": "你选方案 C 还是方案 A？",
+        "options": [
+          "在原目录关联远程仓库",
+          "用 Git 保留更新能力"
+        ]
+      }
+    },
+    {
+      "id": "letter-confirmation",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你选 A 吗？我会先备份。",
+      "expected": {
+        "question": "你选 A 吗？",
+        "options": [
+          "是",
+          "否"
+        ]
+      }
+    },
+    {
+      "id": "letters-plan-prefix",
+      "text": "方案 A：用 Git 保留更新能力\n保留 .git。\n方案 B：替换当前插件目录\n先备份。\n你选哪种方案？",
+      "expected": {
+        "question": "你选哪种方案？",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录"
+        ]
+      }
+    },
+    {
+      "id": "letters-option-prefix",
+      "text": "选项 A：用 Git 保留更新能力\n保留 .git。\n选项 B：替换当前插件目录\n先备份。\n你选哪种方案？",
+      "expected": {
+        "question": "你选哪种方案？",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录"
+        ]
+      }
+    },
+    {
+      "id": "letters-bold-bullets",
+      "text": "- **A. 用 Git 保留更新能力**\n保留 .git。\n- **B. 替换当前插件目录**\n先备份。\n你选哪种方案？",
+      "expected": {
+        "question": "你选哪种方案？",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录"
+        ]
+      }
+    },
+    {
+      "id": "letters-parenthesized",
+      "text": "（A）用 Git 保留更新能力\n保留 .git。\n（B）替换当前插件目录\n先备份。\n你选哪种方案？",
+      "expected": {
+        "question": "你选哪种方案？",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录"
+        ]
+      }
+    },
+    {
+      "id": "letters-lowercase",
+      "text": "a. 用 Git 保留更新能力\n保留 .git。\nb. 替换当前插件目录\n先备份。\n你选哪种方案？",
+      "expected": {
+        "question": "你选哪种方案？",
+        "options": [
+          "用 Git 保留更新能力",
+          "替换当前插件目录"
+        ]
+      }
+    },
+    {
+      "id": "numbers-period",
+      "text": "请选择下一步：\n1. 检查配置\n2. 查看日志\n3. 重启服务",
+      "expected": {
+        "question": "请选择下一步：",
+        "options": [
+          "检查配置",
+          "查看日志",
+          "重启服务"
+        ]
+      }
+    },
+    {
+      "id": "numbers-dunhao",
+      "text": "1、检查配置\n保留原始文件，便于核对。\n2、查看日志\n保留原始文件，便于核对。\n3、重启服务\n保留原始文件，便于核对。\n你选哪种方案？我会先备份。",
+      "expected": {
+        "question": "你选哪种方案？",
+        "options": [
+          "检查配置",
+          "查看日志",
+          "重启服务"
+        ]
+      }
+    },
+    {
+      "id": "numbers-closing-parenthesis",
+      "text": "请选择下一步：\n1）检查配置\n2）查看日志\n3）重启服务",
+      "expected": {
+        "question": "请选择下一步：",
+        "options": [
+          "检查配置",
+          "查看日志",
+          "重启服务"
+        ]
+      }
+    },
+    {
+      "id": "numbers-parenthesized",
+      "text": "（1）检查配置\n保留原始文件，便于核对。\n（2）查看日志\n保留原始文件，便于核对。\n（3）重启服务\n保留原始文件，便于核对。\n你选哪种方案？我会先备份。",
+      "expected": {
+        "question": "你选哪种方案？",
+        "options": [
+          "检查配置",
+          "查看日志",
+          "重启服务"
+        ]
+      }
+    },
+    {
+      "id": "numbers-plan-prefix",
+      "text": "请选择下一步：\n方案 1：检查配置\n方案 2：查看日志\n方案 3：重启服务",
+      "expected": {
+        "question": "请选择下一步：",
+        "options": [
+          "检查配置",
+          "查看日志",
+          "重启服务"
+        ]
+      }
+    },
+    {
+      "id": "numbers-option-prefix",
+      "text": "选项 1：检查配置\n保留原始文件，便于核对。\n选项 2：查看日志\n保留原始文件，便于核对。\n选项 3：重启服务\n保留原始文件，便于核对。\n你选哪种方案？我会先备份。",
+      "expected": {
+        "question": "你选哪种方案？",
+        "options": [
+          "检查配置",
+          "查看日志",
+          "重启服务"
+        ]
+      }
+    },
+    {
+      "id": "numbers-bold-bullets",
+      "text": "请选择下一步：\n- **1. 检查配置**\n- **2. 查看日志**\n- **3. 重启服务**",
+      "expected": {
+        "question": "请选择下一步：",
+        "options": [
+          "检查配置",
+          "查看日志",
+          "重启服务"
+        ]
+      }
+    },
+    {
+      "id": "numbers-markdown-headings",
+      "text": "### 1. 检查配置\n保留原始文件，便于核对。\n### 2. 查看日志\n保留原始文件，便于核对。\n### 3. 重启服务\n保留原始文件，便于核对。\n你选哪种方案？我会先备份。",
+      "expected": {
+        "question": "你选哪种方案？",
+        "options": [
+          "检查配置",
+          "查看日志",
+          "重启服务"
+        ]
+      }
+    },
+    {
+      "id": "number-subset-reordered",
+      "text": "1. 检查配置\n先查看配置文件。\n2. 查看日志\n定位失败原因。\n3. 重启服务\n先备份，再重启。\n你选方案 3 还是方案 1？",
+      "expected": {
+        "question": "你选方案 3 还是方案 1？",
+        "options": [
+          "重启服务",
+          "检查配置"
+        ]
+      }
+    },
+    {
+      "id": "number-confirmation",
+      "text": "1. 检查配置\n先查看配置文件。\n2. 查看日志\n定位失败原因。\n3. 重启服务\n先备份，再重启。\n你选 1 吗？我会先备份。",
+      "expected": {
+        "question": "你选 1 吗？",
+        "options": [
+          "是",
+          "否"
+        ]
+      }
+    },
+    {
+      "id": "number-decimal-values",
+      "text": "1. 检查配置\n先查看配置文件。\n2. 查看日志\n定位失败原因。\n3. 重启服务\n先备份，再重启。\n你选1.5还是2.5？",
+      "expected": {
+        "question": "你选1.5还是2.5？",
+        "options": [
+          "1.5",
+          "2.5"
+        ]
+      }
+    },
+    {
+      "id": "number-fraction-values",
+      "text": "1. 检查配置\n先查看配置文件。\n2. 查看日志\n定位失败原因。\n3. 重启服务\n先备份，再重启。\n你选1/2小时还是3小时？",
+      "expected": {
+        "question": "你选1/2小时还是3小时？",
+        "options": [
+          "1/2小时",
+          "3小时"
+        ]
+      }
+    },
+    {
+      "id": "nested-last-numbered",
+      "text": "A. 检查配置\n先查看配置内容。\nB. 查看日志\n按下面的方法操作。\n1. 登录服务器\n2. 打开日志\n你选哪条路？",
+      "expected": {
+        "question": "你选哪条路？",
+        "options": [
+          "检查配置",
+          "查看日志"
+        ]
+      }
+    },
+    {
+      "id": "nested-bullets-code",
+      "text": "1. 检查配置\n- 备份文件\n- 核对权限\n```text\n1. 隐藏示例\n2. 另一个示例\n```\n2. 查看日志\n- 登录服务器\n- 打开日志\n你选哪条路？",
+      "expected": {
+        "question": "你选哪条路？",
+        "options": [
+          "检查配置",
+          "查看日志"
+        ]
+      }
+    },
+    {
+      "id": "nested-letter-substeps",
+      "text": "1. 手工安装\n准备过程：\na. 下载压缩包\nb. 校验文件\n2. 容器安装\n使用镜像运行。\n你选 1 还是 2？",
+      "expected": {
+        "question": "你选 1 还是 2？",
+        "options": [
+          "手工安装",
+          "容器安装"
+        ]
+      }
+    },
+    {
+      "id": "diagnostics-new-decision",
+      "text": "检查结果：\n1. 配置已经备份\n备份文件可用。\n2. 服务尚未启动\n等待选择。\n请选择执行时间：\n1. 今天\n尽快处理。\n2. 明天\n安排窗口。",
+      "expected": {
+        "question": "请选择执行时间：",
+        "options": [
+          "今天",
+          "明天"
+        ]
+      }
+    },
+    {
+      "id": "diagnostics-inline",
+      "text": "可能来源：\n- gateway 未退出\n- agent 会话仍在使用数据库\n\n你想先排查还是先重启？",
+      "expected": {
+        "question": "你想先排查还是先重启？",
+        "options": [
+          "先排查",
+          "先重启"
+        ]
+      }
+    },
+    {
+      "id": "paired-questions-newline",
+      "text": "要我先查进程吗？\n还是你先执行 `/restart`？",
+      "expected": {
+        "question": "要我先查进程吗？还是你先执行 /restart？",
+        "options": [
+          "我先查进程",
+          "你先执行 /restart"
+        ]
+      }
+    },
+    {
+      "id": "earlier-question",
+      "text": "你想查什么？要我先查进程吗？还是你先执行 /restart？",
+      "expected": {
+        "question": "要我先查进程吗？还是你先执行 /restart？",
+        "options": [
+          "我先查进程",
+          "你先执行 /restart"
+        ]
+      }
+    },
+    {
+      "id": "parenthetical-example",
+      "text": "要我先查，比如查看进程吗？还是你先执行 /restart？",
+      "expected": {
+        "question": "要我先查，比如查看进程吗？还是你先执行 /restart？",
+        "options": [
+          "我先查，比如查看进程",
+          "你先执行 /restart"
+        ]
+      }
+    },
+    {
+      "id": "negative-descriptive-alternatives",
+      "text": "方案 A 更快，方案 B 更稳。",
+      "expected": null
+    },
+    {
+      "id": "negative-procedural-list",
+      "text": "操作步骤：\n1. 打开设置\n2. 选择账号\n是否成功取决于配置。",
+      "expected": null
+    },
+    {
+      "id": "negative-selection-verb-in-instruction",
+      "text": "请选择正确的配置文件，然后按以下步骤操作：\n1. 打开设置\n2. 重启服务",
+      "expected": null
+    },
+    {
+      "id": "negative-open-opinion",
+      "text": "你觉得怎么样？",
+      "expected": null
+    },
+    {
+      "id": "negative-address-input",
+      "text": "请提供服务器地址。",
+      "expected": null
+    },
+    {
+      "id": "negative-knowledge-why",
+      "text": "你知道为什么要选择这个方案吗？",
+      "expected": null
+    },
+    {
+      "id": "negative-fenced-tutorial",
+      "text": "教程示例：\n```text\n是否继续？\n```",
+      "expected": null
+    },
+    {
+      "id": "negative-tilde-fence",
+      "text": "~~~\n是否继续？\n~~~",
+      "expected": null
+    },
+    {
+      "id": "negative-quoted-confirmation",
+      "text": "> 是否继续？",
+      "expected": null
+    },
+    {
+      "id": "negative-inline-example",
+      "text": "示例问题：是否继续？",
+      "expected": null
+    },
+    {
+      "id": "negative-example-choices",
+      "text": "以下是选项示例：\nA. 检查配置\nB. 查看日志",
+      "expected": null
+    },
+    {
+      "id": "negative-tutorial-confirmation",
+      "text": "教程：\n是否继续？",
+      "expected": null
+    },
+    {
+      "id": "negative-knowledge-alternatives",
+      "text": "你知道应该选 A 还是 B 吗？",
+      "expected": null
+    },
+    {
+      "id": "negative-fenced-choices",
+      "text": "你选哪个？\n```text\n1. 检查配置\n2. 查看日志\n```",
+      "expected": null
+    },
+    {
+      "id": "negative-no-poll-confirmation",
+      "text": "不需要投票，请直接回复。是否继续？",
+      "expected": null
+    },
+    {
+      "id": "negative-malformed-explicit-poll",
+      "text": "[POLL]\n{invalid}\n[/POLL]",
+      "expected": null
+    },
+    {
+      "id": "negative-duplicate-labels",
+      "text": "请选择：\n1. 相同\n2. 相同",
+      "expected": null
+    },
+    {
+      "id": "negative-overlong-label",
+      "text": "请选择：\n1. 长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长\n2. 短",
+      "expected": null
+    },
+    {
+      "id": "negative-too-many-choices",
+      "text": "请选择：\n1. 选项0\n2. 选项1\n3. 选项2\n4. 选项3\n5. 选项4\n6. 选项5\n7. 选项6\n8. 选项7\n9. 选项8\n10. 选项9\n11. 选项10\n12. 选项11\n13. 选项12",
+      "expected": null
+    },
+    {
+      "id": "negative-multiple-decisions",
+      "text": "请选择：\n1. 检查配置\n2. 查看日志\n\n请选择时间：\n1. 今天\n2. 明天",
+      "expected": null
+    },
+    {
+      "id": "negative-ambiguous-inline-three",
+      "text": "你想 A 还是 B 还是 C？",
+      "expected": null
+    },
+    {
+      "id": "negative-custom-choice",
+      "text": "请选择：\n1. 检查配置\n2. 查看日志\n或者输入你的自定义方案。",
+      "expected": null
+    },
+    {
+      "id": "negative-missing-first-alternative",
+      "text": "先查进程。\n还是你先执行 /restart？",
+      "expected": null
+    },
+    {
+      "id": "negative-explained-no-prompt",
+      "text": "A. 检查配置\n可以定位环境差异。\nB. 查看日志\n可以找到失败原因。",
+      "expected": null
+    },
+    {
+      "id": "negative-explained-tutorial",
+      "text": "教程：\nA. 检查配置\n可以定位环境差异。\nB. 查看日志\n可以找到失败原因。\n你选哪条路？",
+      "expected": null
+    },
+    {
+      "id": "negative-section-knowledge",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你知道选哪个更安全吗？",
+      "expected": null
+    },
+    {
+      "id": "negative-section-diagnostic-question",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你为什么选哪个方案都报错？",
+      "expected": null
+    },
+    {
+      "id": "negative-already-executed",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n我建议选择 A，已经按 A 执行完了。",
+      "expected": null
+    },
+    {
+      "id": "negative-no-decision",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n上述仅是安装方式说明，不需要你选择。",
+      "expected": null
+    },
+    {
+      "id": "negative-quoted-documentation",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n文档里写着“你选哪条路？”，这是交互示例，不是现在让你选择。",
+      "expected": null
+    },
+    {
+      "id": "negative-freeinput-other-approach",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你选哪条路？也可以回复其他安装方式。",
+      "expected": null
+    },
+    {
+      "id": "negative-freeinput-own-method",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n请选择一种，或者告诉我你自己的安装方法。",
+      "expected": null
+    },
+    {
+      "id": "negative-freeinput-other-ideas",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你选哪个？有其他想法也可以直接说。",
+      "expected": null
+    },
+    {
+      "id": "negative-freeinput-english",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\nWhich approach would you prefer? Or suggest another approach.",
+      "expected": null
+    },
+    {
+      "id": "negative-no-poll-section",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n不用发起投票，直接在聊天里回复。你选哪个？",
+      "expected": null
+    },
+    {
+      "id": "negative-generated-template",
+      "text": "这段配置的作用是生成以下问题：\nA. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n请选择安装方式：\n以上只是字符串模板。",
+      "expected": null
+    },
+    {
+      "id": "negative-quoted-sections",
+      "text": "> A. 查看配置\n> 配置说明。\n> B. 查看日志\n> 日志说明。\n> 你选哪条路？",
+      "expected": null
+    },
+    {
+      "id": "negative-canceled-confirmation",
+      "text": "是否继续？不用了，任务已取消。",
+      "expected": null
+    },
+    {
+      "id": "negative-completed-confirmation",
+      "text": "是否继续？已经执行完成，无需再确认。",
+      "expected": null
+    },
+    {
+      "id": "negative-withdrawn-section",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你选哪条路？不用选了，我已经取消安装。",
+      "expected": null
+    },
+    {
+      "id": "negative-withdrawn-next-line",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你选哪个？\n不用选了，任务已取消。",
+      "expected": null
+    },
+    {
+      "id": "negative-missing-letter",
+      "text": "A. 直接安装\n说明。\nC. 使用容器\n说明。\n你选哪条路？",
+      "expected": null
+    },
+    {
+      "id": "negative-duplicate-letter",
+      "text": "A. 检查配置\n说明。\nB. 查看日志\n说明。\nB. 重启服务\n你选哪条路？",
+      "expected": null
+    },
+    {
+      "id": "negative-incomplete-latest-section",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n新的选项如下：\nA. 重启服务\n说明。\n你选哪条路？",
+      "expected": null
+    },
+    {
+      "id": "negative-unknown-letter-reference",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你选 A 还是 D？",
+      "expected": null
+    },
+    {
+      "id": "negative-repeated-letter-reference",
+      "text": "A. 用 Git 保留更新能力\n保留 .git，后续可以 git pull。\nB. 替换当前插件目录\n先备份旧文件，再克隆到原位置。\nC. 在原目录关联远程仓库\n需要处理已有文件，避免覆盖冲突。\n你选 A 还是 A？",
+      "expected": null
+    },
+    {
+      "id": "negative-missing-number",
+      "text": "1. 检查配置\n说明。\n3. 重启服务\n说明。\n你选哪种方案？",
+      "expected": null
+    },
+    {
+      "id": "negative-duplicate-number",
+      "text": "1. 检查配置\n说明。\n2. 查看日志\n说明。\n2. 重启服务\n说明。\n你选哪种方案？",
+      "expected": null
+    },
+    {
+      "id": "negative-unknown-number-reference",
+      "text": "1. 检查配置\n先查看配置文件。\n2. 查看日志\n定位失败原因。\n3. 重启服务\n先备份，再重启。\n你选 1 还是 100？",
+      "expected": null
+    },
+    {
+      "id": "negative-repeated-number-reference",
+      "text": "1. 检查配置\n先查看配置文件。\n2. 查看日志\n定位失败原因。\n3. 重启服务\n先备份，再重启。\n你选 1 还是 1？",
+      "expected": null
+    }
+  ]
+}
