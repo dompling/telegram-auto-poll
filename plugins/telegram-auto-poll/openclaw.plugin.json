@@ -2,7 +2,7 @@
   "id": "telegram-auto-poll",
   "name": "Telegram Auto Poll",
   "description": "Turn Telegram choices and confirmations into native polls, with per-turn guidance and automatic detection",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "activation": {
     "onStartup": true,
     "onCapabilities": [
@@ -32,6 +32,25 @@
         "type": "boolean",
         "default": true,
         "description": "Recognize explicit choices and confirmations even when the agent omits the POLL block"
+      },
+      "previewMode": {
+        "type": "boolean",
+        "default": false,
+        "description": "Use delivery receipts instead of a sending hook so Telegram can show live previews"
+      },
+      "previewSafeChats": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["chatId", "accountId"],
+          "properties": {
+            "chatId": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+            "accountId": { "type": "string", "minLength": 1 }
+          }
+        },
+        "default": [],
+        "description": "Bot account and private chat pairs confirmed to have no topics; other destinations require a reliable thread ID"
       },
       "learningEnabled": {
         "type": "boolean",

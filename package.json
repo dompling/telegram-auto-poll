@@ -1,6 +1,6 @@
 {
   "name": "telegram-auto-poll",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "type": "module",
   "description": "Automatically turn OpenClaw Telegram choices and confirmations into native polls",

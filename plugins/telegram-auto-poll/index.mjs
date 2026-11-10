@@ -63,6 +63,12 @@ export function createPlugin({
         ? Math.max(1000, Math.min(12000, config.timeoutMs)) : 9000;
       const statePath = stringOrEmpty(config.statePath) || join(homedir(), ".openclaw", "telegram-auto-poll-state.json");
       const allowedChatIds = Array.isArray(config.allowedChatIds) ? config.allowedChatIds.map(String) : [];
+      const previewMode = config.previewMode === true;
+      const previewSafeChats = Array.isArray(config.previewSafeChats) ? config.previewSafeChats.filter(item =>
+        item && typeof item.chatId === "string" && /^[1-9][0-9]*$/.test(item.chatId)
+        && typeof item.accountId === "string" && item.accountId.trim()) : [];
+      const isPreviewSafeChat = (chatId, accountId) => previewSafeChats.some(item =>
+        item.chatId === chatId && item.accountId === accountId);
       const perChatHourlyLimit = Number.isInteger(config.maxPerChatPerHour)
         ? Math.max(1, Math.min(100, config.maxPerChatPerHour)) : 10;
       let journal;
@@ -113,19 +119,20 @@ export function createPlugin({
         // Agent contexts use channel/messageProvider; channelId can be a chat ID.
         if ((ctx?.channel ?? ctx?.messageProvider ?? ctx?.channelId) !== "telegram") return;
         const chatId = stringOrEmpty(ctx?.chatId ?? ctx?.channelId);
+        const accountId = stringOrEmpty(ctx?.accountId);
         if (allowedChatIds.length && (!chatId || !allowedChatIds.includes(chatId))) return;
         let learning = {};
         if (sampleStore && chatId) {
-          const accountId = stringOrEmpty(ctx?.accountId);
           learning = learningPrompt(sampleStore.pending({ to: chatId, accountId, limit: 1 }));
         }
-        const guidance = config.promptGuidance !== false ? pollGuidance(durationSeconds) : "";
+        const guidance = config.promptGuidance !== false && (!previewMode || isPreviewSafeChat(chatId, accountId))
+          ? pollGuidance(durationSeconds, previewMode && config.autoDetect !== false) : "";
         return { ...learning, appendSystemContext: [guidance, learning.appendSystemContext].filter(Boolean).join("\n\n") };
       });
 
       // No network side effects here. Later hooks can still rewrite or cancel
       // delivery. Only a matching, successful message_sent sends the poll.
-      api.on("message_sending", (event, ctx) => {
+      if (!previewMode) api.on("message_sending", (event, ctx) => {
         if (getChannel(event, ctx) !== "telegram") return;
         if (typeof event?.content !== "string") return;
         if (isFallbackText(event.content)) return;
@@ -201,6 +208,8 @@ export function createPlugin({
           if (!to || messageId == null || String(messageId).trim() === "") return;
           if (allowedChatIds.length && !allowedChatIds.includes(to)) return;
           const threadId = event.threadId ?? ctx?.threadId ?? event.metadata?.threadId;
+          const hasThread = threadId != null && String(threadId).trim() !== "";
+          const safeRoute = !previewMode || Boolean(accountId && (hasThread || isPreviewSafeChat(to, accountId)));
           const originKey = createHash("sha256").update(JSON.stringify([
             "delivered", to, accountId, String(messageId), threadId ?? "",
           ])).digest("hex");
@@ -213,7 +222,16 @@ export function createPlugin({
               if (next !== document) { detect = createChoiceDetector(next); document = next; }
               parsed = detect(event.content, { durationSeconds });
             }
-            if (!parsed) return;
+            if (!parsed) {
+              if (previewMode && safeRoute && sampleStore && isLearningCandidate(event.content)) {
+                sampleStore.capture({ to, accountId, content: event.content, originKey });
+              }
+              return;
+            }
+            if (!safeRoute) {
+              logger.warn("telegram-auto-poll: skipped poll because preview delivery did not identify a safe account and topic");
+              return;
+            }
             if (journal.countRecent(to, accountId, Date.now() - 3600000) >= perChatHourlyLimit) return;
             record = journal.create({ to, accountId, threadId, intro: parsed.intro, poll: parsed.poll, originKey });
             token = record.token;

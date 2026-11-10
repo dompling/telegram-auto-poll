@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 // Real host loader, isolated configuration. No Telegram messages are sent.
 const pluginRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const root = process.argv.includes("--legacy-root") ? resolve(pluginRoot, "../..") : pluginRoot;
+const previewMode = process.argv.includes("--preview");
 const state = mkdtempSync(join(tmpdir(), "telegram-auto-poll-host-"));
 try {
   const configPath = join(state, "openclaw.json");
@@ -15,7 +16,7 @@ try {
     allow: ["telegram-auto-poll"], load: { paths: [root] },
     entries: { "telegram-auto-poll": {
       enabled: true, hooks: { allowConversationAccess: true, allowPromptInjection: true },
-      config: { statePath: join(state, "poll-state.json") },
+      config: { statePath: join(state, "poll-state.json"), ...(previewMode ? { previewMode: true, previewSafeChats: [{ chatId: "123", accountId: "default" }] } : {}) },
     } },
   } }), { mode: 0o600 });
   const output = execFileSync("openclaw", ["plugins", "inspect", "telegram-auto-poll", "--runtime", "--json"], {
@@ -24,7 +25,8 @@ try {
   });
   const result = JSON.parse(output);
   assert.equal(result.plugin.status, "loaded");
-  assert.deepEqual(result.typedHooks.map(hook => hook.name).sort(), ["before_prompt_build", "message_sending", "message_sent"]);
+  assert.deepEqual(result.typedHooks.map(hook => hook.name).sort(), previewMode
+    ? ["before_prompt_build", "message_sent"] : ["before_prompt_build", "message_sending", "message_sent"]);
   assert.equal(result.diagnostics.filter(item => item.level === "error" || item.severity === "error").length, 0);
   console.log(JSON.stringify({ status: result.plugin.status, version: result.plugin.version,
     hooks: result.typedHooks.map(hook => hook.name), diagnostics: result.diagnostics }));

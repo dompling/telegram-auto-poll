@@ -1,6 +1,8 @@
-# Telegram Auto Poll for OpenClaw v0.2.2
+# Telegram Auto Poll for OpenClaw v0.2.3
 
 在 Telegram 和 OpenClaw 对话时，让需要确认或选择的回复自动变成原生投票，减少 Agent 忘记发投票的问题。普通聊天保持原样。
+
+v0.2.3 提供可选实时预览模式：在确认安全的无话题私聊中，保留 Telegram 执行进度预览，并在文字送达后创建投票。原有发送前处理仍是默认模式。
 
 v0.2.2 支持带说明段落、命令和嵌套操作步骤的 A/B/C 方案，以及“方案 A”“选项 A”等标题；识别“你选哪条路”“更倾向哪套方案”和问句后的补充说明。投票只使用完整方案标题，原始说明全部保留。“你选 A、B 还是 C”会关联实际方案；明确只问 A/C 时保留该子集和顺序。解释性问题、教程、自由输入、已撤回的选择保持文字。
 
@@ -85,6 +87,21 @@ openclaw plugins enable telegram-auto-poll
 
 Telegram 沿用已有 streaming 配置，**无需添加 `channels.telegram.streaming.mode: "off"`**。普通发送仍在 `message_sending` 准备投票、在 `message_sent` 成功后发送；流式预览/原地编辑即使绕过发送前钩子，也会在最终定稿的成功 `message_sent` 回执中检测完整文本，再创建投票。后一条路径要求宿主提供消息 ID，并按聊天、账号和消息 ID 持久化去重；失败回执不触发投票。宿主若不提供最终回执或消息 ID，则不会猜测消息已完成。流式路径保留已送达的原始文本（包括显式 `[POLL]` 块），不会回头编辑消息。宿主自身可能根据已注册的发送前钩子调整预览行为，具体流式展示由宿主决定。
 
+### 实时预览模式
+
+OpenClaw 2026.10.5 会在存在 `message_sending` Hook 时关闭 Telegram 实时预览。需要预览时，可在插件的 `config` 中合并：
+
+```json
+{
+  "previewMode": true,
+  "previewSafeChats": [{ "chatId": "123456789", "accountId": "default" }]
+}
+```
+
+将示例 ID 换成**已确认该机器人没有启用私聊话题的私聊 ID**，`accountId` 填写对应机器人账号（默认账号为 `default`）。预览模式不注册发送前 Hook，只在收到成功的消息送达回执后识别并发送投票。由于当前 OpenClaw 的 Telegram 回执不包含话题 ID，没有可靠话题 ID 且不在该列表中的会话会跳过自动投票，避免发到错误位置；如果机器人以后启用了私聊话题，也应从列表移除对应条目。需要原有群组话题支持时，可关闭 `previewMode` 恢复发送前模式，但实时预览仍受宿主限制。
+
+预览模式默认提示模型输出可读的 A/B 选项，再自动识别；若关闭 `autoDetect`，仍需显式 `[POLL]` 块，该块会保留在已发送的文字中。预览模式要求宿主提供成功回执和消息 ID，漏检样本也只在这些条件满足时收集。
+
 `cliPath` 推荐填写 `command -v openclaw` 的绝对路径，避免后台服务找不到命令。`allowedChatIds:[]` 表示不额外限制目标，仍受宿主渠道权限控制；可填写指定私聊或群 ID。代码默认时长 300 秒、每小时 10 次，示例改成 1 小时和 100 次；超额退回文字。提示注入需要上述两个 Hook 权限。
 
 应用配置后热加载并检查：
@@ -95,7 +112,7 @@ openclaw plugins inspect telegram-auto-poll --runtime --json
 openclaw plugins doctor --json
 ```
 
-应看到 `status:"loaded"` 和三个 `typedHooks`：`before_prompt_build`、`message_sending`、`message_sent`。本机验证版本 OpenClaw **2026.10.5**、Node.js **24**；代码要求 Node.js >=20，其他宿主版本需实际验证。
+默认模式应看到 `status:"loaded"` 和三个 `typedHooks`：`before_prompt_build`、`message_sending`、`message_sent`；预览模式只有 `before_prompt_build` 和 `message_sent`。本机验证版本 OpenClaw **2026.10.5**、Node.js **24**；代码要求 Node.js >=20，其他宿主版本需实际验证。
 
 `plugins validate` 在本机版本校验工具/功能插件的 authoring metadata，不适合用来判断此 Hook 插件是否可运行。`hook-only` 是受支持兼容路径的信息提示。旧 README 的 `plugins lint` 也不是本机 CLI 支持的命令。
 
