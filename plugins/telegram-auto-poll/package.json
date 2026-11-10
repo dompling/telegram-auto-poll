@@ -1,0 +1,30 @@
+{
+  "name": "telegram-auto-poll",
+  "version": "0.2.2",
+  "private": true,
+  "type": "module",
+  "description": "Automatically turn OpenClaw Telegram choices and confirmations into native polls",
+  "main": "./index.mjs",
+  "files": [
+    "AGENT_INSTRUCTIONS.md",
+    "docs",
+    "index.mjs",
+    "openclaw.plugin.json",
+    "rules",
+    "scripts",
+    "src",
+    "tests"
+  ],
+  "openclaw": {
+    "extensions": [
+      "./index.mjs"
+    ]
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check:host": "node scripts/check-host.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

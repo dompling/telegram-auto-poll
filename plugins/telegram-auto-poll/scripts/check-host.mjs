@@ -6,7 +6,8 @@ import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // Real host loader, isolated configuration. No Telegram messages are sent.
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const pluginRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const root = process.argv.includes("--legacy-root") ? resolve(pluginRoot, "../..") : pluginRoot;
 const state = mkdtempSync(join(tmpdir(), "telegram-auto-poll-host-"));
 try {
   const configPath = join(state, "openclaw.json");

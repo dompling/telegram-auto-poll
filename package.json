@@ -6,14 +6,9 @@
   "description": "Automatically turn OpenClaw Telegram choices and confirmations into native polls",
   "main": "./index.mjs",
   "files": [
-    "AGENT_INSTRUCTIONS.md",
-    "docs",
     "index.mjs",
     "openclaw.plugin.json",
-    "rules",
-    "scripts",
-    "src",
-    "tests"
+    "plugins/telegram-auto-poll"
   ],
   "openclaw": {
     "extensions": [
@@ -21,8 +16,8 @@
     ]
   },
   "scripts": {
-    "test": "node --test tests/*.test.mjs",
-    "check:host": "node scripts/check-host.mjs"
+    "test": "npm --prefix plugins/telegram-auto-poll test",
+    "check:host": "node plugins/telegram-auto-poll/scripts/check-host.mjs --legacy-root"
   },
   "engines": {
     "node": ">=20"

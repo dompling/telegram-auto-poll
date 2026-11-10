@@ -1,0 +1,85 @@
+{
+  "id": "telegram-auto-poll",
+  "name": "Telegram Auto Poll",
+  "description": "Turn Telegram choices and confirmations into native polls, with per-turn guidance and automatic detection",
+  "version": "0.2.2",
+  "activation": {
+    "onStartup": true,
+    "onCapabilities": [
+      "hook"
+    ]
+  },
+  "contracts": {
+    "tools": [
+      "telegram_auto_poll_learn"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable outgoing Telegram poll conversion"
+      },
+      "cliPath": {
+        "type": "string",
+        "default": "openclaw",
+        "description": "Path to the openclaw CLI in the Gateway container"
+      },
+      "autoDetect": {
+        "type": "boolean",
+        "default": true,
+        "description": "Recognize explicit choices and confirmations even when the agent omits the POLL block"
+      },
+      "learningEnabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Collect missed Telegram choices and enable AI-assisted rule learning"
+      },
+      "rulesPath": {
+        "type": "string",
+        "description": "Writable rule file path (default: alongside the plugin state directory)"
+      },
+      "promptGuidance": {
+        "type": "boolean",
+        "default": true,
+        "description": "Add Telegram choice/poll instructions on every agent prompt build"
+      },
+      "defaultDurationSeconds": {
+        "type": "integer",
+        "minimum": 5,
+        "maximum": 604800,
+        "default": 300,
+        "description": "Duration for automatically detected polls and the agent's poll guidance"
+      },
+      "timeoutMs": {
+        "type": "integer",
+        "minimum": 1000,
+        "maximum": 12000,
+        "default": 9000,
+        "description": "Maximum time to wait for the native poll command"
+      },
+      "statePath": {
+        "type": "string",
+        "description": "Writable local JSON journal path (default: ~/.openclaw/telegram-auto-poll-state.json)"
+      },
+      "allowedChatIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": [],
+        "description": "Optional Telegram destination allowlist; empty allows all"
+      },
+      "maxPerChatPerHour": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100,
+        "default": 10,
+        "description": "Maximum accepted poll requests per chat and hour"
+      }
+    }
+  }
+}

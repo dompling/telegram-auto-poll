@@ -20,6 +20,8 @@ openclaw plugins enable openclaw-model-sync
 openclaw model-sync --help
 ```
 
+如果已从其他目录链接过同名插件，先移除旧加载路径并按 OpenClaw 的提示更新安装记录，避免重复加载同一个插件 ID。
+
 在另一台机器上也可以复制整个项目目录后执行上面的命令，或 `npm pack` 后安装生成的 `.tgz`。安装和启用插件时，以宿主返回的后续操作提示为准。
 
 插件通过宿主配置事务修改当前 profile 对应的配置文件，遵循 `OPENCLAW_CONFIG_PATH`；没有自行覆盖 `~/.openclaw/openclaw.json` 的逻辑。配置热重载/重启由宿主决定，CLI 会返回 `followUp`。
