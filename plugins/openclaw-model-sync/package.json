@@ -1,0 +1,18 @@
+{
+  "name": "openclaw-model-sync",
+  "version": "0.1.1",
+  "description": "Sync provider catalogs, reasoning capabilities and model policies into OpenClaw",
+  "type": "module",
+  "main": "./index.mjs",
+  "files": ["index.mjs", "src", "openclaw.plugin.json", "README.md", "examples"],
+  "openclaw": { "extensions": ["./index.mjs"] },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "lint": "node scripts/check.mjs",
+    "typecheck": "node scripts/typecheck.mjs",
+    "check": "npm run lint && npm run typecheck && npm test",
+    "test:host": "node scripts/check-host.mjs",
+    "test:provider": "node scripts/check-provider.mjs"
+  },
+  "engines": { "node": ">=22.16.0" }
+}

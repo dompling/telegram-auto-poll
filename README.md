@@ -2,6 +2,24 @@
 
 在 Telegram 和 OpenClaw 对话时，让需要确认或选择的回复自动变成原生投票，减少 Agent 忘记发投票的问题。普通聊天保持原样。
 
+## 本仓库的插件
+
+| 插件 | 目录 | 功能 |
+| --- | --- | --- |
+| Telegram Auto Poll | 仓库根目录 | 将 Telegram 对话中的选择转换为原生投票 |
+| OpenClaw Model Sync | [plugins/openclaw-model-sync](plugins/openclaw-model-sync/README.md) | 同步供应商模型目录和思考能力配置 |
+
+两个插件各自安装和配置。投票插件的安装方法见下文；安装模型同步插件时，请使用它自己的目录：
+
+```sh
+openclaw plugins install --link /absolute/path/to/telegram-auto-poll/plugins/openclaw-model-sync
+openclaw plugins enable openclaw-model-sync
+```
+
+以上命令用于首次安装。已有同名插件时，先移除旧加载路径并按 OpenClaw 提示更新安装记录，避免同时加载两个相同的插件 ID。将代码同步到本仓库不会自动更改已有链接。
+
+在仓库根目录运行 `npm test` 检查投票插件；在 `plugins/openclaw-model-sync` 目录运行 `npm run check` 检查模型同步插件。
+
 v0.2.2 支持带说明段落、命令和嵌套操作步骤的 A/B/C 方案，以及“方案 A”“选项 A”等标题；识别“你选哪条路”“更倾向哪套方案”和问句后的补充说明。投票只使用完整方案标题，原始说明全部保留。“你选 A、B 还是 C”会关联实际方案；明确只问 A/C 时保留该子集和顺序。解释性问题、教程、自由输入、已撤回的选择保持文字。
 
 v0.2.1 修复了诊断报告前面的原因列表遮住末尾选择问题、列表中的“比如”误触发示例过滤的问题；支持“要我先查进程吗？还是你先执行 `/restart`？”及跨行写法。选项保留操作人和命令，清理末尾疑问语气。
