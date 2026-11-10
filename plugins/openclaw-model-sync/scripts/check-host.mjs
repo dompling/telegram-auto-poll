@@ -43,23 +43,22 @@ async function cli(args) {
 
 try {
   await writeFile(path, JSON.stringify({
-    plugins: { allow: ['openclaw-model-sync'], load: { paths: [root] }, entries: { 'openclaw-model-sync': { enabled: true } } },
+    models: { providers: { sub2api: { baseUrl, api: 'openai-completions', apiKey: '${MODEL_SYNC_TEST_KEY}', models: [
+      { id: 'stale', name: 'Stale', reasoning: true, input: ['text'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 32768, maxTokens: 4096 },
+    ] } } },
+    plugins: { allow: ['openclaw-model-sync'], load: { paths: [root] }, entries: { 'openclaw-model-sync': { enabled: true, config: { providers: ['removed'] } } } },
   }, null, 2), { mode: 0o600 });
   assert.match(await cli(['model-sync', '--help']), /probe/);
   console.log('Host plugin discovery and CLI registration: OK');
-  await cli(['model-sync', 'add', 'sub2api', '--base-url', baseUrl, '--api-key-env', 'MODEL_SYNC_TEST_KEY']);
-  let config = JSON.parse(await readFile(path, 'utf8'));
-  assert.equal(config.models.providers.sub2api.apiKey, '${MODEL_SYNC_TEST_KEY}');
-  assert.deepEqual(config.agents.defaults.modelPolicy.allow, ['sub2api/*']);
-  config.models.providers.sub2api.models = [{ id: 'stale', name: 'Stale', reasoning: true, input: ['text'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 32768, maxTokens: 4096 }];
-  await writeFile(path, JSON.stringify(config, null, 2), { mode: 0o600 });
-  console.log('Host transactional provider add and secret preservation: OK');
+  const listed = JSON.parse(await cli(['model-sync', 'list']));
+  assert.deepEqual(listed.providers.map(provider => [provider.id, provider.selected]), [['sub2api', true]]);
+  console.log('Host reads existing providers without add or a matching plugin provider list: OK');
   await cli(['model-sync', 'sync', '--dry-run']);
   assert.equal(JSON.parse(await readFile(path, 'utf8')).models.providers.sub2api.models[0].id, 'stale');
   await cli(['model-sync', 'sync', '--no-prune']);
   assert.ok(JSON.parse(await readFile(path, 'utf8')).models.providers.sub2api.models.some(model => model.id === 'stale'));
   await cli(['model-sync', 'sync']);
-  config = JSON.parse(await readFile(path, 'utf8'));
+  let config = JSON.parse(await readFile(path, 'utf8'));
   assert.deepEqual(config.models.providers.sub2api.models.map(model => model.id), ['fresh', 'unknown']);
   assert.equal(config.models.providers.sub2api.models[0].reasoning, true);
   assert.equal(config.models.providers.sub2api.models[1].reasoning, true);
@@ -67,12 +66,18 @@ try {
   assert.equal(config.models.providers.sub2api.models[0].contextWindow, 128000);
   assert.equal(config.models.providers.sub2api.models[0].maxTokens, 16000);
   assert.equal(config.models.providers.sub2api.apiKey, '${MODEL_SYNC_TEST_KEY}');
+  assert.deepEqual(config.agents.defaults.modelPolicy.allow, ['sub2api/*']);
   console.log('Host dry run, --no-prune, default prune and model serialization: OK');
   config.models.providers.sub2api.models.find(model => model.id === 'unknown').reasoning = false;
   await writeFile(path, JSON.stringify(config, null, 2), { mode: 0o600 });
   await cli(['model-sync', 'probe', 'sub2api', 'unknown', '--apply']);
   assert.equal(JSON.parse(await readFile(path, 'utf8')).models.providers.sub2api.models.find(model => model.id === 'unknown').reasoning, true);
   console.log('Host explicit reasoning probe and apply: OK');
+  await cli(['model-sync', 'add', 'optional', '--base-url', baseUrl, '--api-key-env', 'MODEL_SYNC_TEST_KEY']);
+  config = JSON.parse(await readFile(path, 'utf8'));
+  assert.equal(config.models.providers.optional.apiKey, '${MODEL_SYNC_TEST_KEY}');
+  assert.deepEqual(config.agents.defaults.modelPolicy.allow, ['sub2api/*', 'optional/*']);
+  console.log('Host optional provider add and secret preservation: OK');
   await cli(['config', 'validate']);
   assert.equal(requests, 4);
   console.log('Host final config validation: OK');

@@ -1,8 +1,8 @@
 # OpenClaw Model Sync
 
-原生 OpenClaw 插件，用来把供应商模型列表、思考能力和供应商白名单同步到 OpenClaw 配置。
+原生 OpenClaw 插件，直接读取当前 OpenClaw 配置中的 `models.providers`，同步已有供应商的模型列表、思考能力和供应商白名单。无需在插件里重复填写供应商、地址或密钥。
 
-- 添加或更新 `models.providers.<provider>`。
+- 每次执行时读取已有供应商的 `baseUrl`、`api`、`apiKey` 和 `headers`；新增或删除供应商后，下次执行自动跟随当前配置。
 - 从供应商的 `/models` 拉取模型并合并目录，**默认清理远端已不存在的模型**。
 - 检测模型是否支持 reasoning / thinking，并写入模型的 `reasoning`。
 - 合并 `agents.defaults.modelPolicy.allow` 中的 `provider/*`，保留已有规则。
@@ -12,10 +12,11 @@
 
 ## 安装
 
-在项目目录执行：
+从仓库根目录执行：
 
 ```sh
-openclaw plugins install --link .
+cd plugins/openclaw-model-sync
+openclaw plugins install --link . --force
 openclaw plugins enable openclaw-model-sync
 openclaw model-sync --help
 ```
@@ -26,37 +27,30 @@ openclaw model-sync --help
 
 插件通过宿主配置事务修改当前 profile 对应的配置文件，遵循 `OPENCLAW_CONFIG_PATH`；没有自行覆盖 `~/.openclaw/openclaw.json` 的逻辑。配置热重载/重启由宿主决定，CLI 会返回 `followUp`。
 
-## 添加供应商
+## 读取已有供应商并同步
 
-先让 OpenClaw CLI 和 Gateway 进程能够读取密钥环境变量。密钥可以放在运行环境或 OpenClaw 的环境配置中，避免放进仓库。
-
-```sh
-openclaw model-sync add sub2api \
-  --base-url https://your-provider.example/v1 \
-  --api openai-completions \
-  --api-key-env SUB2API_API_KEY
-```
-
-插件仅保存 `"apiKey": "${SUB2API_API_KEY}"`。不需要鉴权的本地服务可以省略 `--api-key-env`。
-
-可选 API 类型：`openai-completions`、`openai-responses`、`anthropic-messages`。`baseUrl` 是 API 根地址，不是完整的 `/models`、`/chat/completions` 或 `/responses` 地址。OpenAI 兼容接口通常需要包含 `/v1`；Anthropic 地址若只有域名，会自动补 `/v1`。
-
-更新已有供应商需要 `--replace`，已有模型和其他字段会保留。省略 `--api` 或 `--api-key-env` 时，保留已有协议或密钥引用；新建供应商默认使用 `openai-completions`。
+只要供应商已经配置在 OpenClaw 的 `models.providers` 中，安装后即可执行：
 
 ```sh
-openclaw model-sync add sub2api --replace --base-url https://new-provider.example/v1
+# 查看当前配置中已存在的供应商，不显示密钥
 openclaw model-sync list
+
+# 从所有已配置供应商拉取模型并预览改动
+openclaw model-sync sync --dry-run
+
+# 应用同步结果，默认清理远端已不存在的模型
+openclaw model-sync sync
 ```
 
-`add` 同时将供应商加入模型策略，不会立即发请求。已有供应商可直接同步，不需要再次添加。
+从 0.1.2 起，默认同步始终选择当前 `models.providers` 中的全部供应商，不再要求维护插件的 `providers` 列表。旧配置中的该字段仍可加载，但不再参与筛选。已有供应商不需要运行 `model-sync add`；密钥引用继续从运行 OpenClaw 的环境中解析，不会复制到插件配置。
 
 ## 同步与默认清理
 
 ```sh
-# 同步默认选定的供应商，默认删除远端已不存在的模型
+# 从 OpenClaw 配置读取全部供应商，默认删除远端已不存在的模型
 openclaw model-sync sync
 
-# 只同步这些供应商
+# 本次只同步这些已配置供应商，不影响下次默认同步
 openclaw model-sync sync sub2api kiro litellm sub2api-cpa
 
 # 预览新增、更新、移除、能力证据和警告，不写配置
@@ -73,6 +67,29 @@ CLI 输出 JSON，包含 `added`、`updated`、`removed`、`retained`、`unchang
 已有模型的显示名、输入类型、价格、上下文窗口、最大输出和 `compat` 等自定义字段会保留。新模型优先使用远端元数据，缺失时暂用 32,768 上下文、4,096 最大输出、文本输入及零价格；这些是配置占位值，不代表真实能力或免费。可调整下面的默认值，或编辑已生成模型。
 
 本插件不修改默认模型和 fallback。默认清理可能移除这些引用所指向的失效模型，需将默认模型切换到远端仍提供的模型；不要把本地失效条目保留与模型仍然可调用混为一谈。
+
+## 可选：添加新供应商
+
+仅在 OpenClaw 中尚未配置供应商时，可使用 `add` 写入 `models.providers`，也可以用 OpenClaw 自身的配置方式添加。它不是同步已有供应商的前置步骤。
+
+先让 OpenClaw CLI 和 Gateway 进程能够读取密钥环境变量，再执行：
+
+```sh
+openclaw model-sync add sub2api \
+  --base-url https://your-provider.example/v1 \
+  --api openai-completions \
+  --api-key-env SUB2API_API_KEY
+```
+
+插件仅保存 `"apiKey": "${SUB2API_API_KEY}"`。不需要鉴权的本地服务可以省略 `--api-key-env`。`add` 同时将供应商加入模型策略，不会立即发请求。
+
+可选 API 类型：`openai-completions`、`openai-responses`、`anthropic-messages`。`baseUrl` 是 API 根地址，不是完整的 `/models`、`/chat/completions` 或 `/responses` 地址。OpenAI 兼容接口通常需要包含 `/v1`；Anthropic 地址若只有域名，会自动补 `/v1`。
+
+更新已有供应商需要 `--replace`，已有模型和其他字段会保留。省略 `--api` 或 `--api-key-env` 时，保留已有协议或密钥引用；新建供应商默认使用 `openai-completions`。
+
+```sh
+openclaw model-sync add sub2api --replace --base-url https://new-provider.example/v1
+```
 
 ## 供应商白名单
 
@@ -155,11 +172,10 @@ openclaw model-sync probe anthropic MODEL_ID --format anthropic-adaptive --apply
 
 ## 插件设置
 
-配置写在 `plugins.entries.openclaw-model-sync.config`：
+插件不需要供应商配置。以下可选设置写在 `plugins.entries.openclaw-model-sync.config`：
 
 ```json
 {
-  "providers": ["sub2api", "kiro", "litellm", "sub2api-cpa"],
   "prune": true,
   "timeoutMs": 15000,
   "defaultContextWindow": 32768,
@@ -171,11 +187,11 @@ openclaw model-sync probe anthropic MODEL_ID --format anthropic-adaptive --apply
 }
 ```
 
-`providers` 默认为 `[]`，选中 `models.providers` 中所有供应商；CLI 明确给定的 ID 会覆盖此选择。不支持的 API 会单独报告错误并保持不变。`prune` 默认 `true`；设置为 `false` 可长期关闭清理。
+省略 CLI / Agent 工具的 `providers` 参数时，读取 `models.providers` 中全部供应商；明确给定的 ID 仅筛选本次同步。旧版插件设置中的 `providers` 已停用，可以删除。不支持的 API 会单独报告错误并保持不变。`prune` 默认 `true`；设置为 `false` 可长期关闭清理。
 
 将 `enableAgentTool` 设为 `true`，再在 OpenClaw 的工具策略中放行可选工具 `model_sync`，即可让 Agent 执行 `list` / `sync`。工具同步缺省 `dryRun: true`，只有明确要求应用时使用 `dryRun: false`。供应商凭据管理和收费探测保留在 CLI。
 
-完整配置示例见 [examples/openclaw.json](examples/openclaw.json)。示例里的域名和变量是占位值，将相关片段合并到已有配置中，不要直接覆盖整份配置。
+最小插件配置见 [examples/openclaw.json](examples/openclaw.json)。将插件条目和白名单合并到已有配置中，保留已有供应商及其他插件，不要直接覆盖整份配置。
 
 ## 开发与验证
 

@@ -16,12 +16,12 @@ export default {
     api.registerTool({
       name: 'model_sync',
       label: 'Model Sync',
-      description: 'List providers or synchronize model catalogs into OpenClaw. Sync prunes stale models by default. dryRun defaults to true. Only set dryRun=false when the user explicitly requests applying config changes. Use CLI model-sync add/probe for credentials and billable probes.',
+      description: 'Read providers and their connection settings directly from the current OpenClaw models.providers config. No separate provider setup is needed. List providers or sync all configured providers by default; providers optionally filters this invocation. Sync prunes stale models by default. dryRun defaults to true. Only set dryRun=false when the user explicitly requests applying config changes. Billable probes remain in CLI model-sync probe.',
       parameters: {
         type: 'object', additionalProperties: false, required: ['action'],
         properties: {
           action: { type: 'string', enum: ['list', 'sync'] },
-          providers: { type: 'array', items: { type: 'string' } },
+          providers: { type: 'array', items: { type: 'string' }, description: 'Optional IDs from models.providers for this sync only; omitted or empty selects all currently configured providers' },
           dryRun: { type: 'boolean', default: true },
           prune: { type: 'boolean', description: 'Defaults to plugin setting (true unless configured otherwise)' },
         },

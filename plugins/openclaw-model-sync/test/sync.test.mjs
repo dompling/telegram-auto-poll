@@ -23,6 +23,54 @@ function fixture(initial = { models: { providers: { sub2api: provider() } } }) {
 }
 const discovery = async () => ({ models: discovered, warnings: [] });
 
+test('default discovery follows current provider additions, removals and connection settings', async () => {
+  const f = fixture();
+  const connections = [];
+  const sync = createSynchronizer({ config: f.runtime, discover: async connection => {
+    connections.push(structuredClone(connection));
+    return discovery();
+  } });
+  assert.deepEqual(sync.list().providers.map(item => item.id), ['sub2api']);
+  await sync.sync({ dryRun: true });
+  assert.deepEqual(connections.splice(0), [f.state().models.providers.sub2api]);
+
+  f.edit(state => {
+    state.models.providers.kiro = { ...provider(), baseUrl: 'https://kiro.example/v1', api: 'openai-responses', apiKey: '${KIRO_KEY}', headers: { 'x-account': '${ACCOUNT}' } };
+  });
+  assert.deepEqual(sync.list().providers.map(item => item.id), ['sub2api', 'kiro']);
+  const added = await sync.sync({ dryRun: true });
+  assert.deepEqual(added.providers.map(item => item.provider), ['sub2api', 'kiro']);
+  assert.deepEqual(connections.splice(0), Object.values(f.state().models.providers));
+
+  f.edit(state => {
+    delete state.models.providers.sub2api;
+    state.models.providers.kiro.apiKey = '${UPDATED_KEY}';
+  });
+  assert.deepEqual(sync.list().providers.map(item => item.id), ['kiro']);
+  const removed = await sync.sync({ dryRun: true });
+  assert.deepEqual(removed.providers.map(item => item.provider), ['kiro']);
+  assert.deepEqual(removed.errors, []);
+  assert.deepEqual(connections, [f.state().models.providers.kiro]);
+  assert.equal(f.writes(), 0);
+});
+
+test('legacy plugin provider lists do not restrict discovery from OpenClaw config', async () => {
+  const f = fixture({ models: { providers: { sub2api: provider(), kiro: provider() } } });
+  const sync = createSynchronizer({ config: f.runtime, settings: { providers: ['sub2api', 'removed'] }, discover: discovery });
+  assert.deepEqual(sync.list().providers.map(item => [item.id, item.selected]), [['sub2api', true], ['kiro', true]]);
+  const result = await sync.sync();
+  assert.deepEqual(result.providers.map(item => item.provider), ['sub2api', 'kiro']);
+  assert.deepEqual(result.errors, []);
+});
+
+test('empty host provider config directs setup to models.providers without making requests', async () => {
+  const f = fixture({});
+  const sync = createSynchronizer({ config: f.runtime, discover: async () => { throw new Error('must not request'); } });
+  assert.deepEqual(sync.list().providers, []);
+  await assert.rejects(sync.sync(), /models\.providers/);
+  assert.equal(f.writes(), 0);
+});
+
 test('Sub2API catalog capabilities update existing reasoning without generation calls', async () => {
   const f = fixture({
     models: { providers: { sub2api: { ...provider(), models: [{ id: 'old', reasoning: false }] } } },
@@ -119,7 +167,7 @@ test('empty result and total failure do not write or prune', async () => {
 
 test('provider targeting does not prune unrelated catalogs', async () => {
   const f = fixture({ models: { providers: { sub2api: provider(), kiro: provider() } } });
-  await createSynchronizer({ config: f.runtime, settings: { providers: ['kiro'] }, discover: discovery }).sync();
+  await createSynchronizer({ config: f.runtime, settings: { providers: ['sub2api'] }, discover: discovery }).sync({ providers: ['kiro'] });
   assert.equal(f.state().models.providers.sub2api.models[0].id, 'old');
   assert.equal(f.state().models.providers.kiro.models[0].id, 'fresh');
 });

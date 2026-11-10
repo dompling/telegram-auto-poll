@@ -16,9 +16,9 @@ export function registerCli(program, sync) {
       process.exitCode = 1;
     }
   };
-  root.command('list').description('列出供应商和 modelPolicy.allow（隐藏密钥）').action(() => run(() => sync.list()));
+  root.command('list').description('读取 OpenClaw models.providers 和 modelPolicy.allow（隐藏密钥）').action(() => run(() => sync.list()));
   root.command('add <provider>')
-    .description('添加供应商并写入 provider/*；已有供应商需 --replace')
+    .description('可选：向 OpenClaw 添加供应商；已有供应商可直接 sync，无需 add')
     .requiredOption('--base-url <url>', 'API 根地址，例如 https://example.com/v1')
     .option('--api <type>', 'openai-completions | openai-responses | anthropic-messages；新建默认 completions，更新时保留原值')
     .option('--api-key-env <name>', '保存 API key 的环境变量名称，配置中仅写入引用')
@@ -26,7 +26,7 @@ export function registerCli(program, sync) {
     .option('--dry-run', '只预览，不写配置')
     .action((/** @type {string} */ id, /** @type {any} */ options) => run(() => sync.add({ id, ...options })));
   root.command('sync [providers...]')
-    .description('发现并同步模型，默认删除远端已不存在的模型')
+    .description('默认读取 OpenClaw 中全部供应商并同步模型；指定 ID 仅筛选本次同步，默认清理旧模型')
     .option('--dry-run', '获取远端模型并预览增删，不写配置')
     .option('--no-prune', '保留远端已不存在的模型')
     .action((/** @type {string[]} */ providers, /** @type {any} */ options, /** @type {any} */ command) => run(() => sync.sync({

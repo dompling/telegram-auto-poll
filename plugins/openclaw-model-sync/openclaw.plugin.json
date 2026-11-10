@@ -1,7 +1,7 @@
 {
   "id": "openclaw-model-sync",
   "name": "Model Sync",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "同步供应商模型、思考能力与 modelPolicy.allow；默认清理失效模型",
   "cliCommands": [{ "name": "model-sync", "description": "管理供应商并同步模型", "hasSubcommands": true }],
   "activation": { "onStartup": false, "onCommands": ["model-sync"], "onCapabilities": ["tool"] },
@@ -10,7 +10,7 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
-      "providers": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,127}$" }, "uniqueItems": true, "default": [], "description": "默认同步的供应商 ID；空数组选择 models.providers 中所有供应商" },
+      "providers": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,127}$" }, "uniqueItems": true, "default": [], "deprecated": true, "description": "仅兼容旧配置，已不作为筛选条件；默认读取 models.providers 中全部供应商，单次筛选请使用命令或工具参数" },
       "prune": { "type": "boolean", "default": true, "description": "默认清理远端已不存在的模型；请求失败或异常空列表不清理" },
       "timeoutMs": { "type": "integer", "minimum": 100, "maximum": 120000, "default": 15000, "description": "每次 HTTP 请求的超时时间（毫秒）" },
       "defaultContextWindow": { "type": "integer", "minimum": 1024, "maximum": 10000000, "default": 32768, "description": "缺少远端元数据时，新模型的上下文窗口暂用值" },

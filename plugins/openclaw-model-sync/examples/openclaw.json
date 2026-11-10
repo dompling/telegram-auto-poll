@@ -1,24 +1,10 @@
 {
-  "models": {
-    "mode": "merge",
-    "providers": {
-      "sub2api": { "baseUrl": "https://sub2api.example.com/v1", "api": "openai-completions", "apiKey": "${SUB2API_API_KEY}", "models": [] },
-      "kiro": { "baseUrl": "https://kiro.example.com/v1", "api": "openai-completions", "apiKey": "${KIRO_API_KEY}", "models": [] },
-      "litellm": { "baseUrl": "https://litellm.example.com/v1", "api": "openai-completions", "apiKey": "${LITELLM_API_KEY}", "models": [] },
-      "sub2api-cpa": { "baseUrl": "https://sub2api-cpa.example.com/v1", "api": "openai-completions", "apiKey": "${SUB2API_CPA_API_KEY}", "models": [] }
-    }
-  },
-  "agents": {
-    "defaults": {
-      "modelPolicy": { "allow": ["sub2api/*", "kiro/*", "litellm/*", "sub2api-cpa/*"] }
-    }
-  },
   "plugins": {
     "allow": ["openclaw-model-sync"],
     "entries": {
       "openclaw-model-sync": {
         "enabled": true,
-        "config": { "providers": ["sub2api", "kiro", "litellm", "sub2api-cpa"], "prune": true }
+        "config": { "prune": true }
       }
     }
   }

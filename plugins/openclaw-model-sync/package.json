@@ -1,6 +1,6 @@
 {
   "name": "openclaw-model-sync",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Sync provider catalogs, reasoning capabilities and model policies into OpenClaw",
   "type": "module",
   "main": "./index.mjs",

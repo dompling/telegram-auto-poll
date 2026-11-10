@@ -14,8 +14,8 @@ export function createSynchronizer({ config, settings: rawSettings, env = proces
 
   /** @param {string[] | undefined} selected @param {Config} snapshot */
   function selectProviders(selected, snapshot) {
-    const ids = selected?.length ? selected : settings.providers.length ? settings.providers : Object.keys(snapshot.models?.providers ?? {});
-    if (!ids.length) throw new Error('没有可同步的供应商，请先运行 model-sync add');
+    const ids = selected?.length ? selected : Object.keys(snapshot.models?.providers ?? {});
+    if (!ids.length) throw new Error('OpenClaw 的 models.providers 中没有供应商，请先在 OpenClaw 配置中添加');
     return [...new Set(ids.map(validateProviderId))];
   }
 
@@ -26,7 +26,7 @@ export function createSynchronizer({ config, settings: rawSettings, env = proces
         providers: Object.entries(snapshot.models?.providers ?? {}).map(([id, provider]) => ({
           id, api: provider.api, modelCount: provider.models?.length ?? 0,
           supported: SUPPORTED_APIS.includes(provider.api ?? ''),
-          selected: settings.providers.length === 0 || settings.providers.includes(id),
+          selected: true,
         })),
         allow: snapshot.agents?.defaults?.modelPolicy?.allow ?? [],
         prune: settings.prune,
